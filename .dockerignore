@@ -1,0 +1,22 @@
+# Build context is the repo root; send only what the images need.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/src/generated
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+.husky
+.vscode
+.idea
+**/*.log
+**/test
+**/*.spec.ts
+docker-compose*.yml
+**/Dockerfile
+.dockerignore
