@@ -1,10 +1,15 @@
 'use client';
 
-import type { AuthSessionResponse, LoginRequest, UserDto } from '@paritas/shared';
+import type {
+  AuthSessionResponse,
+  ChangePasswordRequest,
+  LoginRequest,
+  UserDto,
+} from '@paritas/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { REFRESH_LEAD_MS } from '@/lib/api/api.constants';
-import { login, logout } from '@/lib/api/auth-api';
+import { changePassword as requestPasswordChange, login, logout } from '@/lib/api/auth-api';
 import { endSession, refreshSession, registerSessionEndedHandler } from '@/lib/api/session';
 import { MIN_RENEWAL_DELAY_MS } from './auth.constants';
 import type { AuthContextValue, AuthStatus } from './auth.types';
@@ -62,9 +67,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const changePassword = useCallback(
+    async (request: ChangePasswordRequest): Promise<void> => {
+      applySession(await requestPasswordChange(request));
+    },
+    [applySession],
+  );
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user: session?.user ?? null, signIn, signOut }),
-    [status, session, signIn, signOut],
+    () => ({ status, user: session?.user ?? null, signIn, signOut, changePassword }),
+    [status, session, signIn, signOut, changePassword],
   );
   return <AuthContext value={value}>{children}</AuthContext>;
 };

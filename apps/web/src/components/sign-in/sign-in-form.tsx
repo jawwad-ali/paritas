@@ -2,19 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type LoginRequest, loginRequestSchema } from '@paritas/shared';
-import { Eye, EyeOff, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/forms/password-input';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from '@/components/ui/input-group';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { publicEnv } from '@/config/env';
@@ -30,7 +25,6 @@ export const SignInForm = () => {
   const { status, signIn } = useAuth();
   const router = useRouter();
   const next = safeNextPath(useSearchParams().get(NEXT_PARAM));
-  const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm<LoginRequest>({
     resolver: zodResolver(loginRequestSchema),
@@ -86,25 +80,13 @@ export const SignInForm = () => {
         </Field>
         <Field data-invalid={Boolean(errors.password)}>
           <FieldLabel htmlFor="password">Password</FieldLabel>
-          <InputGroup className="h-10">
-            <InputGroupInput
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              aria-invalid={Boolean(errors.password)}
-              {...form.register('password')}
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                onClick={() => setShowPassword((shown) => !shown)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? <EyeOff /> : <Eye />}
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
+          <PasswordInput
+            id="password"
+            groupClassName="h-10"
+            autoComplete="current-password"
+            aria-invalid={Boolean(errors.password)}
+            {...form.register('password')}
+          />
           <FieldError errors={[errors.password]} />
         </Field>
       </FieldGroup>

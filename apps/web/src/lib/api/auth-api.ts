@@ -1,5 +1,6 @@
 import {
   type AuthSessionResponse,
+  type ChangePasswordRequest,
   CSRF_HEADER,
   CSRF_HEADER_VALUE,
   type LoginRequest,
@@ -31,6 +32,18 @@ export const logout = async (): Promise<void> => {
   } finally {
     setAccessToken(null);
   }
+};
+
+/** Sets a new password; the server signs out every other session and issues this one anew. */
+export const changePassword = async (
+  request: ChangePasswordRequest,
+): Promise<AuthSessionResponse> => {
+  const session = await apiRequest<AuthSessionResponse>('/auth/change-password', {
+    method: 'POST',
+    body: request,
+  });
+  setAccessToken(session.accessToken);
+  return session;
 };
 
 export const fetchCurrentUser = (signal?: AbortSignal): Promise<UserDto> =>

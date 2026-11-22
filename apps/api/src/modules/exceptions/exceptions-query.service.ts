@@ -29,7 +29,9 @@ export class ExceptionsQueryService {
       { ...query, createdAt: { gte: query.from, lte: query.to } },
       actor,
     );
-    const [rows, total] = await this.prisma.$transaction([
+    // Rows and count run in parallel on separate connections: under READ COMMITTED a
+    // batch transaction would add no consistency, only serialise them on one.
+    const [rows, total] = await Promise.all([
       this.prisma.reconciliationException.findMany({
         where,
         include: EXCEPTION_LIST_INCLUDE,

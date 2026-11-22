@@ -60,7 +60,9 @@ export class UsersService {
       }),
     };
 
-    const [users, total] = await this.prisma.$transaction([
+    // Rows and count run in parallel on separate connections: under READ COMMITTED a
+    // batch transaction would add no consistency, only serialise them on one.
+    const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],

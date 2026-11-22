@@ -46,7 +46,12 @@ services:
     env_file: apps/api/.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-paritas}:${POSTGRES_PASSWORD:-paritas}@postgres:5432/${POSTGRES_DB:-paritas}?schema=public
-    command: ['sh', '-c', 'pnpm exec prisma migrate deploy && pnpm exec prisma db seed']
+    command:
+      [
+        'sh',
+        '-c',
+        'node node_modules/prisma/build/index.js migrate deploy && node build/seed/prisma/seed.js',
+      ]
     restart: 'no'
     depends_on:
       postgres:

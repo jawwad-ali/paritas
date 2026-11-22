@@ -1,6 +1,7 @@
 # Build context is the repo root; send only what the images need.
 **/node_modules
 **/dist
+**/build
 **/.next
 **/.turbo
 **/coverage

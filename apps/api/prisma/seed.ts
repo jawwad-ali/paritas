@@ -4,8 +4,9 @@
  *   - default matching rules
  *   - one demo user per role
  *
- * Safe to run repeatedly: existing rows are left untouched (a demo user's
- * password is never reset by re-seeding). Run with `pnpm db:seed`.
+ * Safe to run repeatedly: existing rows are left untouched, except that a demo
+ * user's display name follows this file. A password is never reset by
+ * re-seeding. Run with `pnpm db:seed`.
  */
 import 'dotenv/config';
 import { hash } from '@node-rs/argon2';
@@ -36,9 +37,9 @@ const DEFAULT_MATCHING_CONFIG = {
 } as const;
 
 const DEMO_USERS = [
-  { email: 'admin@paritas.example.com', name: 'Jordan Ellis', role: UserRole.ADMIN },
-  { email: 'manager@paritas.example.com', name: 'Priya Raman', role: UserRole.MANAGER },
-  { email: 'officer@paritas.example.com', name: 'Marcus Chen', role: UserRole.OFFICER },
+  { email: 'admin@paritas.example.com', name: 'Walter Ostrowski', role: UserRole.ADMIN },
+  { email: 'manager@paritas.example.com', name: 'Denise Fairbanks', role: UserRole.MANAGER },
+  { email: 'officer@paritas.example.com', name: 'Carmen Ruelas', role: UserRole.OFFICER },
 ] as const;
 
 const MIN_DEMO_PASSWORD_LENGTH = 12;
@@ -82,7 +83,7 @@ const seedDemoUsers = async (prisma: PrismaClient, password: string): Promise<vo
   for (const user of DEMO_USERS) {
     await prisma.user.upsert({
       where: { email: user.email },
-      update: {},
+      update: { name: user.name },
       create: { ...user, passwordHash },
     });
   }

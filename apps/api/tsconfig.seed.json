@@ -1,0 +1,13 @@
+{
+  "//": "Compiles prisma/seed.ts to plain JavaScript for the migrator image, which has no tsx.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./build/seed",
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["prisma/seed.ts"]
+}

@@ -50,7 +50,9 @@ export class AuditService {
       createdAt: { gte: query.from, lte: query.to },
     };
 
-    const [rows, total] = await this.prisma.$transaction([
+    // Rows and count run in parallel on separate connections: under READ COMMITTED a
+    // batch transaction would add no consistency, only serialise them on one.
+    const [rows, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
