@@ -7,6 +7,12 @@ export const DEFAULT_THROTTLE_LIMIT = 300;
 
 export const COOKIE_SAME_SITE_VALUES = ['lax', 'strict', 'none'] as const;
 
+/**
+ * Where background work runs. `queue`: BullMQ workers on Redis (retries, any number of replicas).
+ * `inline`: inside the request that caused it, for serverless hosts with no long-running worker.
+ */
+export const JOB_RUNNERS = ['queue', 'inline'] as const;
+
 /** Short-lived: limits the damage window of a leaked access token. */
 export const DEFAULT_JWT_ACCESS_TTL_SECONDS = 15 * 60;
 export const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 7;

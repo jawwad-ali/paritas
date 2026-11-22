@@ -15,8 +15,7 @@ import { AppConfigService } from './config/app-config.service.js';
 import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { LoggerModule } from './infrastructure/logger/logger.module.js';
-import { QueueModule } from './infrastructure/queue/queue.module.js';
-import { RedisModule } from './infrastructure/redis/redis.module.js';
+import { jobInfrastructureModules } from './infrastructure/jobs/job-runner.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
@@ -30,6 +29,7 @@ import { ReportsModule } from './modules/reports/reports.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { SimulatorModule } from './modules/simulator/simulator.module.js';
 import { SourcesModule } from './modules/sources/sources.module.js';
+import { SweepsModule } from './modules/sweeps/sweeps.module.js';
 import { TransactionsModule } from './modules/transactions/transactions.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
@@ -40,8 +40,7 @@ import { UsersModule } from './modules/users/users.module.js';
     LoggerModule,
     RequestContextModule,
     DatabaseModule,
-    RedisModule,
-    QueueModule,
+    ...jobInfrastructureModules(),
     ThrottlerModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => [
@@ -63,6 +62,7 @@ import { UsersModule } from './modules/users/users.module.js';
     ReportsModule,
     SettingsModule,
     SimulatorModule,
+    SweepsModule,
   ],
   providers: [
     // Global guards run in this order: rate limit → authenticate → authorise.

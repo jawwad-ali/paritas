@@ -6,6 +6,7 @@ import {
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
   DEFAULT_THROTTLE_LIMIT,
   DEFAULT_THROTTLE_TTL_MS,
+  JOB_RUNNERS,
   LOG_LEVELS,
   MIN_JWT_SECRET_LENGTH,
   NODE_ENVIRONMENTS,
@@ -18,6 +19,9 @@ const booleanFromString = z.enum(['true', 'false']).transform((value) => value =
 /** `KEY=` in a .env file yields "", which must mean "not set", not "set to empty". */
 const optionalString = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
+/** Read on its own too: module wiring depends on it before the full config is available. */
+export const jobRunnerSchema = z.enum(JOB_RUNNERS).default('queue');
 
 const commaSeparatedList = z.string().transform((value) =>
   value
@@ -38,7 +42,15 @@ export const envSchema = z
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     CORS_ORIGINS: commaSeparatedList.pipe(z.array(z.url()).min(1)),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-    REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    /** Required with JOB_RUNNER=queue; the inline runner never connects to Redis. */
+    REDIS_URL: optionalString(z.url({ protocol: /^rediss?$/ })),
+    JOB_RUNNER: jobRunnerSchema,
+    /** Bearer secret for the scheduled sweep endpoint (Vercel Cron sends it). Unset = endpoint off. */
+    CRON_SECRET: optionalString(
+      z
+        .string()
+        .min(MIN_JWT_SECRET_LENGTH, `Must be at least ${MIN_JWT_SECRET_LENGTH} characters.`),
+    ),
     SWAGGER_ENABLED: booleanFromString.default(false),
     THROTTLE_TTL_MS: z.coerce.number().int().positive().default(DEFAULT_THROTTLE_TTL_MS),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(DEFAULT_THROTTLE_LIMIT),
@@ -78,6 +90,10 @@ export const envSchema = z
       .min(MIN_JWT_SECRET_LENGTH, `Must be at least ${MIN_JWT_SECRET_LENGTH} characters.`),
     /** Demo data generator. Off unless explicitly enabled: it injects synthetic transactions. */
     SIMULATOR_ENABLED: booleanFromString.default(false),
+  })
+  .refine((env) => env.JOB_RUNNER !== 'queue' || env.REDIS_URL !== undefined, {
+    path: ['REDIS_URL'],
+    message: 'REDIS_URL is required when JOB_RUNNER=queue.',
   })
   .refine(
     (env) =>

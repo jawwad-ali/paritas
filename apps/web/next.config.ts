@@ -22,13 +22,23 @@ const SECURITY_HEADERS = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
 ];
 
+/**
+ * Server-side only. When set, /api/v1/* on this origin is forwarded to the API,
+ * so the browser sees one site and the refresh cookie stays first-party (two
+ * *.vercel.app projects are different sites, and browsers drop cross-site
+ * cookies). Leave NEXT_PUBLIC_API_URL unset to use it.
+ */
+const apiProxyUrl = process.env.API_PROXY_URL?.replace(/\/+$/, '');
+
 const nextConfig: NextConfig = {
-  // Self-contained server bundle for the Docker image.
-  output: 'standalone',
+  // Self-contained server bundle for the Docker image; Vercel builds its own output.
+  output: process.env.VERCEL ? undefined : 'standalone',
   // Trace from the monorepo root so workspace packages land in the bundle.
   outputFileTracingRoot: path.join(import.meta.dirname, '../../'),
   poweredByHeader: false,
   headers: async () => [{ source: '/:path*', headers: SECURITY_HEADERS }],
+  rewrites: async () =>
+    apiProxyUrl ? [{ source: '/api/v1/:path*', destination: `${apiProxyUrl}/api/v1/:path*` }] : [],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

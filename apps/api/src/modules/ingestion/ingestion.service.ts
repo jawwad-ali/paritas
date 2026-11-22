@@ -1,20 +1,18 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { SourceCode } from '@paritas/shared';
-import type { Queue } from 'bullmq';
 import { RawEventStatus } from '../../generated/prisma/client.js';
 import { isUniqueConstraintViolation } from '../../common/database/prisma-errors.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
-import { INGESTION_JOBS, QUEUES } from '../../infrastructure/queue/queue.constants.js';
 import { SourcesService } from '../sources/sources.service.js';
-import type { InboundEvent, ProcessRawEventJob, ReceiveResult } from './ingestion.types.js';
+import type { InboundEvent, ReceiveResult } from './ingestion.types.js';
+import { RawEventDispatcher } from './raw-event-dispatcher.js';
 
 const SOURCE_DISABLED_REASON = 'Source is disabled; event stored but not processed.';
 
 /**
  * Entry point for every source. Receiving is deliberately minimal (persist the
- * raw event, enqueue it) so webhooks are acknowledged in milliseconds; all the
- * real work happens in the worker, with retries.
+ * raw event, dispatch it) so webhooks are acknowledged in milliseconds; with the
+ * queue runner all the real work happens in the worker, with retries.
  */
 @Injectable()
 export class IngestionService {
@@ -23,7 +21,7 @@ export class IngestionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sources: SourcesService,
-    @InjectQueue(QUEUES.INGESTION) private readonly queue: Queue,
+    private readonly dispatcher: RawEventDispatcher,
   ) {}
 
   async receive(sourceCode: SourceCode, event: InboundEvent): Promise<ReceiveResult> {
@@ -51,31 +49,22 @@ export class IngestionService {
     }
 
     if (source.isActive) {
-      await this.enqueueSafely(rawEventId);
+      await this.dispatchSafely(rawEventId);
     }
     return { rawEventId, duplicate: false };
   }
 
   /**
-   * jobId = rawEventId makes enqueueing idempotent: while a job for the event
-   * exists, adding it again is a no-op.
-   */
-  async enqueue(rawEventId: string): Promise<void> {
-    const job: ProcessRawEventJob = { rawEventId };
-    await this.queue.add(INGESTION_JOBS.PROCESS_RAW_EVENT, job, { jobId: rawEventId });
-  }
-
-  /**
    * The raw event is already durable. If Redis is briefly unavailable we still
-   * acknowledge the webhook; the sweeper re-enqueues the event shortly after.
+   * acknowledge the webhook; the sweeper dispatches the event again shortly after.
    */
-  private async enqueueSafely(rawEventId: string): Promise<void> {
+  private async dispatchSafely(rawEventId: string): Promise<void> {
     try {
-      await this.enqueue(rawEventId);
+      await this.dispatcher.dispatch(rawEventId);
     } catch (error) {
       this.logger.error(
         { err: error, rawEventId },
-        'Failed to enqueue raw event; the sweeper will retry.',
+        'Failed to dispatch raw event; the sweeper will retry.',
       );
     }
   }

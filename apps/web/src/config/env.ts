@@ -5,7 +5,14 @@ import { z } from 'zod';
  * at build time, so each must be referenced literally for Next to replace it.
  */
 const publicEnvSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.url(),
+  /**
+   * Where the browser calls the API. Unset: this same origin, which forwards
+   * /api/v1/* to the API (API_PROXY_URL in next.config.ts), so the session
+   * cookie stays first-party when the two run on different domains.
+   */
+  NEXT_PUBLIC_API_URL: z
+    .preprocess((value) => (value === '' ? undefined : value), z.url().optional())
+    .transform((value) => value ?? ''),
   /**
    * Local demos only: when set, the sign-in page offers the seeded demo
    * accounts with this password. Never set it in a real deployment.

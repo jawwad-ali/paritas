@@ -1,7 +1,9 @@
-import { InjectQueue } from '@nestjs/bullmq';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type { Queue } from 'bullmq';
 import { ReconciliationStatus } from '../../generated/prisma/client.js';
+import { AppConfigService } from '../../config/app-config.service.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
 import { QUEUES, RECONCILIATION_JOBS } from '../../infrastructure/queue/queue.constants.js';
 import { MatchingEngine } from './engine/matching-engine.service.js';
@@ -19,12 +21,20 @@ export class ReconciliationSweeper implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly engine: MatchingEngine,
-    @InjectQueue(QUEUES.RECONCILIATION) private readonly queue: Queue,
+    private readonly config: AppConfigService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    // The inline runner has no workers: the sweep trigger calls sweep() instead.
+    if (this.config.runsJobsInline) {
+      return;
+    }
+    const queue = this.moduleRef.get<Queue>(getQueueToken(QUEUES.RECONCILIATION), {
+      strict: false,
+    });
     // A job scheduler, not a timer: exactly one worker runs each sweep cluster-wide.
-    await this.queue.upsertJobScheduler(
+    await queue.upsertJobScheduler(
       RECONCILIATION_JOBS.SWEEP_UNRECONCILED,
       { every: SWEEP_EVERY_MS },
       { name: RECONCILIATION_JOBS.SWEEP_UNRECONCILED },

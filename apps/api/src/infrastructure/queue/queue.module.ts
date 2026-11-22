@@ -15,7 +15,7 @@ import { DEFAULT_JOB_OPTIONS, QUEUE_PREFIX, QUEUES } from './queue.constants.js'
       useFactory: (config: AppConfigService) => ({
         prefix: QUEUE_PREFIX,
         // BullMQ workers block on Redis; they require maxRetriesPerRequest = null.
-        connection: { url: config.get('REDIS_URL'), maxRetriesPerRequest: null },
+        connection: { url: config.redisUrl, maxRetriesPerRequest: null },
         defaultJobOptions: DEFAULT_JOB_OPTIONS,
       }),
     }),

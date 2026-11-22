@@ -14,7 +14,7 @@ const redisClientProvider: Provider = {
   provide: REDIS_CLIENT,
   inject: [AppConfigService],
   useFactory: (config: AppConfigService): Redis => {
-    const client = new Redis(config.get('REDIS_URL'), {
+    const client = new Redis(config.redisUrl, {
       connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
       // BullMQ workers require this to be null; harmless for regular commands.
       maxRetriesPerRequest: null,

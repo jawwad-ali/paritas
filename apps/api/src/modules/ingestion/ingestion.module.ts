@@ -5,6 +5,7 @@ import { IngestionProcessor } from './ingestion.processor.js';
 import { IngestionService } from './ingestion.service.js';
 import { LedgerNormalizer } from './ledger/ledger.normalizer.js';
 import { NormalizerRegistry } from './normalizer-registry.js';
+import { rawEventDispatcherProvider } from './raw-event-dispatcher.js';
 import { RawEventHandler } from './raw-event-handler.service.js';
 import { RawEventSweeper } from './raw-event-sweeper.service.js';
 import { RawEventsController } from './raw-events.controller.js';
@@ -16,8 +17,9 @@ import { StripeWebhookController } from './webhooks/stripe-webhook.controller.js
 
 /**
  * Sources → raw events → normalised transactions.
- *   webhook ─► IngestionService.receive ─► raw_events + queue ─► IngestionProcessor
- *     ─► normaliser ─► TransactionWriter ─► reconciliation queue
+ *   webhook ─► IngestionService.receive ─► raw_events ─► RawEventDispatcher
+ *     ─► (queue: IngestionProcessor | inline: same request) ─► RawEventHandler
+ *     ─► normaliser ─► TransactionWriter ─► matching engine
  */
 @Module({
   imports: [SourcesModule, ReconciliationModule],
@@ -25,6 +27,7 @@ import { StripeWebhookController } from './webhooks/stripe-webhook.controller.js
   providers: [
     IngestionService,
     IngestionProcessor,
+    rawEventDispatcherProvider,
     RawEventHandler,
     RawEventSweeper,
     RawEventsService,
@@ -33,6 +36,6 @@ import { StripeWebhookController } from './webhooks/stripe-webhook.controller.js
     StripeNormalizer,
     LedgerNormalizer,
   ],
-  exports: [IngestionService],
+  exports: [IngestionService, RawEventSweeper],
 })
 export class IngestionModule {}

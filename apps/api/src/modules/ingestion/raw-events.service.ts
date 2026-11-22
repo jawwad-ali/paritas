@@ -1,4 +1,3 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   ListRawEventsQuery,
@@ -6,15 +5,13 @@ import type {
   RawEventDetailDto,
   RawEventDto,
 } from '@paritas/shared';
-import type { Queue } from 'bullmq';
 import { type Prisma, RawEventStatus } from '../../generated/prisma/client.js';
 import { toPaginated, toSkipTake } from '../../common/pagination/pagination.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
-import { QUEUES } from '../../infrastructure/queue/queue.constants.js';
 import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants.js';
 import { AuditService } from '../audit/audit.service.js';
 import { toRawEventDetailDto, toRawEventDto } from '../transactions/transactions.mapper.js';
-import { IngestionService } from './ingestion.service.js';
+import { RawEventDispatcher } from './raw-event-dispatcher.js';
 
 /** Only events that did not produce a transaction can be replayed. */
 const REPLAYABLE_STATUSES: readonly RawEventStatus[] = [
@@ -26,9 +23,8 @@ const REPLAYABLE_STATUSES: readonly RawEventStatus[] = [
 export class RawEventsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly ingestion: IngestionService,
+    private readonly dispatcher: RawEventDispatcher,
     private readonly audit: AuditService,
-    @InjectQueue(QUEUES.INGESTION) private readonly queue: Queue,
   ) {}
 
   async list(query: ListRawEventsQuery): Promise<Paginated<RawEventDto>> {
@@ -91,9 +87,7 @@ export class RawEventsService {
       );
     });
 
-    // A retained failed job with the same id would make the new add a no-op.
-    await this.queue.remove(id);
-    await this.ingestion.enqueue(id);
+    await this.dispatcher.replay(id);
     return this.getById(id);
   }
 }

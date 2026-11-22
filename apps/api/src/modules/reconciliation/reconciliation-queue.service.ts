@@ -1,23 +1,13 @@
-import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
-import type { Queue } from 'bullmq';
-import { QUEUES, RECONCILIATION_JOBS } from '../../infrastructure/queue/queue.constants.js';
-
 export interface MatchTransactionJob {
   transactionId: string;
 }
 
 /**
- * Producer side of the reconciliation queue. Every created or changed
- * transaction is (re-)evaluated by the matching engine; the matcher is
- * idempotent, so a redundant job is harmless.
+ * Producer side of the matching engine. Every created or changed transaction is
+ * (re-)evaluated; the matcher is idempotent, so a redundant request is harmless.
+ * Callers invoke it after their own database transaction has committed.
+ * Implementations (queue or inline) live in reconciliation-queue.provider.ts.
  */
-@Injectable()
-export class ReconciliationQueueService {
-  constructor(@InjectQueue(QUEUES.RECONCILIATION) private readonly queue: Queue) {}
-
-  async enqueueMatch(transactionId: string): Promise<void> {
-    const job: MatchTransactionJob = { transactionId };
-    await this.queue.add(RECONCILIATION_JOBS.MATCH_TRANSACTION, job);
-  }
+export abstract class ReconciliationQueueService {
+  abstract enqueueMatch(transactionId: string): Promise<void>;
 }

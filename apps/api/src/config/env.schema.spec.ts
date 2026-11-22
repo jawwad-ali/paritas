@@ -32,7 +32,7 @@ describe('envSchema', () => {
     const result = envSchema.safeParse({});
     expect(result.success).toBe(false);
     const missing = result.error?.issues.map((issue) => issue.path.join('.'));
-    expect(missing).toEqual(expect.arrayContaining(['CORS_ORIGINS', 'DATABASE_URL', 'REDIS_URL']));
+    expect(missing).toEqual(expect.arrayContaining(['CORS_ORIGINS', 'DATABASE_URL']));
   });
 
   it('rejects an out-of-range port', () => {

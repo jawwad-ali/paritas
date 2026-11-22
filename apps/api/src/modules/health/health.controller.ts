@@ -34,17 +34,18 @@ export class HealthController {
 
   @Get('ready')
   @HealthCheck()
-  @ApiOperation({ summary: 'Readiness probe: checks PostgreSQL and Redis' })
+  @ApiOperation({
+    summary: 'Readiness probe: checks PostgreSQL, and Redis when the queue runs on it',
+  })
   ready() {
-    return this.health.check([
-      () =>
-        this.prismaIndicator
-          .pingCheck(HEALTH_CHECK_KEYS.DATABASE, this.prisma)
-          .withTimeout(DEPENDENCY_PING_TIMEOUT_MS),
-      () =>
-        this.redisIndicator
-          .pingCheck(HEALTH_CHECK_KEYS.REDIS)
-          .withTimeout(DEPENDENCY_PING_TIMEOUT_MS),
-    ]);
+    const database = () =>
+      this.prismaIndicator
+        .pingCheck(HEALTH_CHECK_KEYS.DATABASE, this.prisma)
+        .withTimeout(DEPENDENCY_PING_TIMEOUT_MS);
+    const redis = () =>
+      this.redisIndicator
+        .pingCheck(HEALTH_CHECK_KEYS.REDIS)
+        .withTimeout(DEPENDENCY_PING_TIMEOUT_MS);
+    return this.health.check(this.redisIndicator.isConfigured ? [database, redis] : [database]);
   }
 }

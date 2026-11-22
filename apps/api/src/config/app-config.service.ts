@@ -21,4 +21,18 @@ export class AppConfigService {
   get isTest(): boolean {
     return this.get('NODE_ENV') === 'test';
   }
+
+  /** Background work runs inside the request (serverless) instead of on BullMQ workers. */
+  get runsJobsInline(): boolean {
+    return this.get('JOB_RUNNER') === 'inline';
+  }
+
+  /** Only the queue runner connects to Redis, and the schema requires the URL for it. */
+  get redisUrl(): string {
+    const url = this.get('REDIS_URL');
+    if (url === undefined) {
+      throw new Error('REDIS_URL is not set; it is required when JOB_RUNNER=queue.');
+    }
+    return url;
+  }
 }

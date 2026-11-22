@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { HealthIndicatorService } from '@nestjs/terminus';
 import type { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../../../infrastructure/redis/redis.constants.js';
@@ -7,10 +7,20 @@ import { REDIS_CLIENT } from '../../../infrastructure/redis/redis.constants.js';
 export class RedisHealthIndicator {
   constructor(
     private readonly healthIndicatorService: HealthIndicatorService,
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    /** Absent with the inline job runner, which never connects to Redis. */
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis,
   ) {}
 
+  /** Whether there is a Redis connection to check at all. */
+  get isConfigured(): boolean {
+    return this.redis !== undefined;
+  }
+
   pingCheck<const TKey extends string>(key: TKey) {
-    return this.healthIndicatorService.check(key).attempt(() => this.redis.ping());
+    const redis = this.redis;
+    const indicator = this.healthIndicatorService.check(key);
+    return redis
+      ? indicator.attempt(() => redis.ping())
+      : indicator.attempt(() => Promise.reject(new Error('Redis is not configured.')));
   }
 }

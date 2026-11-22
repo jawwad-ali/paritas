@@ -8,6 +8,9 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: process.env['DATABASE_URL'],
+    // Migrations need a direct connection (they take a session lock that a
+    // transaction-mode pooler cannot hold). Hosts with a pooler (Neon on Vercel)
+    // set DATABASE_URL_UNPOOLED; locally DATABASE_URL is already direct.
+    url: process.env['DATABASE_URL_UNPOOLED'] ?? process.env['DATABASE_URL'],
   },
 });
