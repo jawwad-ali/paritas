@@ -23,7 +23,8 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN pnpm --filter "@paritas/api..." run build
+RUN pnpm --filter @paritas/api run generate \
+    && pnpm --filter "@paritas/api..." run build
 
 # Self-contained production bundle: dist + prod node_modules only.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \

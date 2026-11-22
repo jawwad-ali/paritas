@@ -16,3 +16,9 @@ export * from './pagination/query-params.js';
 
 export * from './audit/audit.types.js';
 export * from './audit/audit.schemas.js';
+
+export * from './transactions/transaction.constants.js';
+export * from './transactions/transaction.types.js';
+export * from './transactions/transaction.schemas.js';
+
+export * from './simulator/simulator.js';

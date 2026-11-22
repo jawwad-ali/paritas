@@ -12,7 +12,7 @@ describe('Health & error contract (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication<NestExpressApplication>();
+    app = moduleRef.createNestApplication<NestExpressApplication>({ rawBody: true });
     configureApp(app, app.get(AppConfigService));
     await app.init();
   });

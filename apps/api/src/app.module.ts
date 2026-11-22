@@ -15,12 +15,17 @@ import { AppConfigService } from './config/app-config.service.js';
 import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { LoggerModule } from './infrastructure/logger/logger.module.js';
+import { QueueModule } from './infrastructure/queue/queue.module.js';
 import { RedisModule } from './infrastructure/redis/redis.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { IngestionModule } from './modules/ingestion/ingestion.module.js';
+import { SimulatorModule } from './modules/simulator/simulator.module.js';
+import { SourcesModule } from './modules/sources/sources.module.js';
+import { TransactionsModule } from './modules/transactions/transactions.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -31,6 +36,7 @@ import { UsersModule } from './modules/users/users.module.js';
     RequestContextModule,
     DatabaseModule,
     RedisModule,
+    QueueModule,
     ThrottlerModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => [
@@ -43,6 +49,10 @@ import { UsersModule } from './modules/users/users.module.js';
     // Features
     HealthModule,
     UsersModule,
+    SourcesModule,
+    TransactionsModule,
+    IngestionModule,
+    SimulatorModule,
   ],
   providers: [
     // Global guards run in this order: rate limit → authenticate → authorise.

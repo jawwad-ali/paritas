@@ -5,6 +5,7 @@ const validEnv = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
   JWT_ACCESS_SECRET: 'a'.repeat(32),
+  INTERNAL_LEDGER_WEBHOOK_SECRET: 'b'.repeat(32),
 };
 
 describe('envSchema', () => {

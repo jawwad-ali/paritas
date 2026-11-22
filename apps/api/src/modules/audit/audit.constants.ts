@@ -10,12 +10,17 @@ export const AUDIT_ACTIONS = {
   AUTH_PASSWORD_CHANGED: 'auth.password_changed',
   USER_CREATED: 'user.create',
   USER_UPDATED: 'user.update',
+  SOURCE_UPDATED: 'source.update',
+  RAW_EVENT_REPLAYED: 'raw_event.replay',
+  SIMULATOR_RUN: 'simulator.run',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 export const AUDIT_ENTITY_TYPES = {
   USER: 'user',
+  SOURCE: 'source',
+  RAW_EVENT: 'raw_event',
 } as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[keyof typeof AUDIT_ENTITY_TYPES];

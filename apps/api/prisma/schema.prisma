@@ -190,6 +190,9 @@ model Transaction {
   metadata             Json                 @default("{}")
   reconciliationStatus ReconciliationStatus @default(UNMATCHED) @map("reconciliation_status")
   matchId              String?              @map("match_id") @db.Uuid
+  /// Source timestamp of the newest event applied to this row. Events older than
+  /// this are ignored, so out-of-order webhook delivery cannot roll state back.
+  lastEventAt          DateTime             @map("last_event_at") @db.Timestamptz(3)
   createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
 

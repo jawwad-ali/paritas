@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 1 (Data model, auth, audit)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 2 (Transaction ingestion)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -80,7 +80,71 @@ Every important action is written to `audit_logs` with the actor, the entity, a
 `{ before, after }` diff and the request context (`requestId`, IP, user agent). Changes and
 their audit records are written in the same database transaction, so one never exists
 without the other. Logged today: sign-in (success and failure, with reason), sign-out,
-refresh-token reuse, password change, user creation and updates.
+refresh-token reuse, password change, user creation and updates, source enable/disable,
+raw-event replays and simulator runs.
+
+### Ingestion pipeline
+
+```
+ Stripe ──webhook──►┐                        ┌──────────── worker (BullMQ, retries) ────────────┐
+                    ├─► verify signature ─► raw_events ─► normaliser ─► transactions ─► reconciliation
+ Ledger ──webhook──►┘   (HMAC, 5-min window)  (idempotent)  (per source)  (ordered upsert)   queue (Phase 3)
+```
+
+1. **Receive** (`POST /api/v1/webhooks/{stripe|internal-ledger}`): verify the signature over
+   the exact bytes received, store the untouched payload in `raw_events`, enqueue a job, answer
+   `200` in milliseconds. A redelivered event hits the `(source, external_event_id)` unique key
+   and is acknowledged as a duplicate without being processed twice.
+2. **Normalise** (worker): a per-source normaliser maps the payload to the common format
+   (integer cents, ISO currency, `PENDING | SUCCEEDED | FAILED | REFUNDED`, lower-cased customer
+   email). Malformed payloads fail immediately; transient errors retry with exponential backoff.
+3. **Write**: upsert by `(source, external_id)` with last-writer-wins on the _source's_ event
+   time, so out-of-order webhooks can never roll a payment backwards. Refund events change only
+   the status, never the original amount or time.
+4. **Hand off**: every changed transaction is queued for the matching engine.
+
+Safety nets: a scheduled sweeper re-enqueues raw events that never got a job (e.g. Redis was
+briefly down); admins can replay `FAILED`/`IGNORED` events; live-mode Stripe events and live
+API keys are refused; a disabled source still has its events stored for audit.
+
+| Source          | Events reconciled                                                                                                        | Auth                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Stripe          | `payment_intent.succeeded`, `.processing`, `.payment_failed`, `.canceled`, `charge.refunded`                             | `Stripe-Signature` (webhook secret)                              |
+| Internal ledger | `ledger.entry.recorded`, `ledger.entry.updated` (schema: `apps/api/src/modules/ingestion/ledger/ledger-event.schema.ts`) | `x-paritas-signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">` |
+
+### Simulator (demo data)
+
+`POST /api/v1/simulator/runs` (Admin) plays both the merchant's checkout and its internal ledger,
+and injects realistic discrepancies so every exception type can be demonstrated:
+
+| Scenario               | What happens                                                   |
+| ---------------------- | -------------------------------------------------------------- |
+| `EXACT_MATCH`          | Both sides agree and share the Stripe PaymentIntent id         |
+| `FEE_WITHIN_TOLERANCE` | Ledger booked the amount net of a small fee (within tolerance) |
+| `FUZZY_MATCH`          | Ledger lacks the reference; amount, time and customer agree    |
+| `MISSING_IN_LEDGER`    | Paid at Stripe, never recorded internally                      |
+| `MISSING_AT_GATEWAY`   | Recorded internally, Stripe has no such payment                |
+| `AMOUNT_MISMATCH`      | Ledger booked the pre-discount total                           |
+| `DUPLICATE_IN_LEDGER`  | Ledger recorded the same payment twice                         |
+| `STATUS_CONFLICT`      | Card declined at Stripe, ledger says succeeded                 |
+| `DELAYED_SETTLEMENT`   | Stripe still processing, ledger pending                        |
+
+```json
+{ "count": 50, "anomalyRate": 0.3, "spreadHours": 6, "gateway": "synthetic" }
+```
+
+- `synthetic` (default): Stripe-shaped test events are generated locally. No Stripe account needed.
+- `stripe`: creates real PaymentIntents in Stripe **test mode** (`STRIPE_SECRET_KEY`, preferably a
+  restricted `rk_test_` key); Stripe then sends the webhooks. Forward them locally with the CLI:
+
+  ```bash
+  npm i -g @stripe/cli
+  stripe sandbox create          # or `stripe login` with an existing account
+  stripe listen --forward-to localhost:4000/api/v1/webhooks/stripe
+  # copy the printed whsec_… into STRIPE_WEBHOOK_SECRET and restart the API
+  ```
+
+The simulator is disabled unless `SIMULATOR_ENABLED=true`; never enable it in production.
 
 ## Getting started
 
@@ -94,6 +158,7 @@ cp apps/web/.env.example apps/web/.env.local
 pnpm infra:up     # PostgreSQL (localhost:5433) + Redis (localhost:6380)
 pnpm db:migrate   # apply migrations
 pnpm db:seed      # sources, default matching rules, demo users
+# then: sign in as admin and POST /api/v1/simulator/runs to generate demo payments
 pnpm dev          # API on :4000, web on :3000
 ```
 
@@ -121,16 +186,25 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 
 ### API at a glance
 
-| Method & path                       | Who            | What                                     |
-| ----------------------------------- | -------------- | ---------------------------------------- |
-| `POST /api/v1/auth/login`           | anyone         | Sign in                                  |
-| `POST /api/v1/auth/refresh`         | cookie         | New access token (rotates the cookie)    |
-| `POST /api/v1/auth/logout`          | cookie         | End the session                          |
-| `GET /api/v1/auth/me`               | signed in      | Current user                             |
-| `POST /api/v1/auth/change-password` | signed in      | Change password, sign out other sessions |
-| `GET/POST /api/v1/users`            | Admin          | List / create users                      |
-| `GET/PATCH /api/v1/users/:id`       | Admin          | Read / update name, role, active status  |
-| `GET /api/v1/audit-logs`            | Admin, Manager | Search the audit trail                   |
+| Method & path                           | Who            | What                                     |
+| --------------------------------------- | -------------- | ---------------------------------------- |
+| `POST /api/v1/auth/login`               | anyone         | Sign in                                  |
+| `POST /api/v1/auth/refresh`             | cookie         | New access token (rotates the cookie)    |
+| `POST /api/v1/auth/logout`              | cookie         | End the session                          |
+| `GET /api/v1/auth/me`                   | signed in      | Current user                             |
+| `POST /api/v1/auth/change-password`     | signed in      | Change password, sign out other sessions |
+| `GET/POST /api/v1/users`                | Admin          | List / create users                      |
+| `GET/PATCH /api/v1/users/:id`           | Admin          | Read / update name, role, active status  |
+| `GET /api/v1/audit-logs`                | Admin, Manager | Search the audit trail                   |
+| `GET /api/v1/transactions`              | signed in      | Normalised transactions, filterable      |
+| `GET /api/v1/transactions/:id`          | signed in      | One transaction + its raw source event   |
+| `GET /api/v1/sources`                   | signed in      | Sources with volume and last activity    |
+| `PATCH /api/v1/sources/:id`             | Admin          | Enable / disable a source                |
+| `GET /api/v1/raw-events[/:id]`          | Admin, Manager | Inbound events as received               |
+| `POST /api/v1/raw-events/:id/replay`    | Admin          | Re-process a failed or ignored event     |
+| `POST /api/v1/simulator/runs`           | Admin          | Generate demo payments with anomalies    |
+| `POST /api/v1/webhooks/stripe`          | Stripe         | Stripe events (signature-verified)       |
+| `POST /api/v1/webhooks/internal-ledger` | Ledger         | Ledger events (HMAC-verified)            |
 
 ### Useful scripts
 
@@ -150,7 +224,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 
 - [x] **Phase 0**: Foundation (monorepo, config, logging, health, errors, Docker)
 - [x] **Phase 1**: Data model, authentication and roles, audit log
-- [ ] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
+- [x] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
 - [ ] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
 - [ ] **Phase 4**: Exception management workflow
 - [ ] **Phase 5**: Dashboard metrics, reports and export, configurable rules

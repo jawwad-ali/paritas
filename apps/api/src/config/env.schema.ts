@@ -15,6 +15,10 @@ import {
 /** Env vars arrive as strings; parse "true"/"false" explicitly (z.coerce.boolean treats "false" as true). */
 const booleanFromString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
+/** `KEY=` in a .env file yields "", which must mean "not set", not "set to empty". */
+const optionalString = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
 const commaSeparatedList = z.string().transform((value) =>
   value
     .split(',')
@@ -58,6 +62,22 @@ export const envSchema = z
     /** Secure by default; set "false" only for plain-HTTP local development. */
     AUTH_COOKIE_SECURE: booleanFromString.default(true),
     AUTH_COOKIE_SAMESITE: z.enum(COOKIE_SAME_SITE_VALUES).default('lax'),
+
+    // ── Transaction sources ───────────────────────────────
+    /** Signing secret of the Stripe webhook endpoint (or of `stripe listen`). Unset = Stripe webhooks disabled. */
+    STRIPE_WEBHOOK_SECRET: optionalString(z.string().startsWith('whsec_')),
+    /** Test-mode key, used only by the simulator to create real test payments. Live keys are refused. */
+    STRIPE_SECRET_KEY: optionalString(
+      z
+        .string()
+        .regex(/^(sk|rk)_test_/, 'Only Stripe test-mode keys (sk_test_/rk_test_) are allowed.'),
+    ),
+    /** HMAC secret shared with the internal ledger for signing its webhooks. */
+    INTERNAL_LEDGER_WEBHOOK_SECRET: z
+      .string()
+      .min(MIN_JWT_SECRET_LENGTH, `Must be at least ${MIN_JWT_SECRET_LENGTH} characters.`),
+    /** Demo data generator. Off unless explicitly enabled: it injects synthetic transactions. */
+    SIMULATOR_ENABLED: booleanFromString.default(false),
   })
   .refine(
     (env) =>
@@ -65,6 +85,15 @@ export const envSchema = z
     {
       path: ['JWT_ACCESS_SECRET'],
       message: 'Replace the example JWT secret before running in production.',
+    },
+  )
+  .refine(
+    (env) =>
+      env.NODE_ENV !== 'production' ||
+      !env.INTERNAL_LEDGER_WEBHOOK_SECRET.startsWith(PLACEHOLDER_SECRET_PREFIX),
+    {
+      path: ['INTERNAL_LEDGER_WEBHOOK_SECRET'],
+      message: 'Replace the example ledger webhook secret before running in production.',
     },
   )
   .refine((env) => env.AUTH_COOKIE_SAMESITE !== 'none' || env.AUTH_COOKIE_SECURE, {
