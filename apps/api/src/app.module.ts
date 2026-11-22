@@ -23,8 +23,11 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IngestionModule } from './modules/ingestion/ingestion.module.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { ExceptionsModule } from './modules/exceptions/exceptions.module.js';
 import { ReconciliationModule } from './modules/reconciliation/reconciliation.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
 import { SimulatorModule } from './modules/simulator/simulator.module.js';
 import { SourcesModule } from './modules/sources/sources.module.js';
 import { TransactionsModule } from './modules/transactions/transactions.module.js';
@@ -56,6 +59,9 @@ import { UsersModule } from './modules/users/users.module.js';
     IngestionModule,
     ReconciliationModule,
     ExceptionsModule,
+    DashboardModule,
+    ReportsModule,
+    SettingsModule,
     SimulatorModule,
   ],
   providers: [

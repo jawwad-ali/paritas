@@ -27,5 +27,6 @@ import { ExceptionsQueryService } from './exceptions-query.service.js';
     ExceptionManualMatchService,
     ExceptionLifecycle,
   ],
+  exports: [ExceptionsQueryService],
 })
 export class ExceptionsModule {}

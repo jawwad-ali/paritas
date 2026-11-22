@@ -11,6 +11,7 @@ import {
   type Paginated,
 } from '@paritas/shared';
 import { toPaginated, toSkipTake } from '../../common/pagination/pagination.js';
+import { countsBy } from '../../common/utils/counts.js';
 import type { RequestActor } from '../../common/request-context/request-context.types.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
 import { OPEN_STATUSES } from './exceptions.constants.js';
@@ -18,25 +19,16 @@ import { buildExceptionWhere, EXCEPTION_ORDER_BY } from './exceptions.filters.js
 import { EXCEPTION_DETAIL_INCLUDE, EXCEPTION_LIST_INCLUDE } from './exceptions.includes.js';
 import { toExceptionDetailDto, toExceptionDto } from './exceptions.mapper.js';
 
-/** Zero-filled counts keyed by every value of an enum, so clients never see a missing key. */
-const countsBy = <K extends string>(
-  keys: readonly K[],
-  rows: ReadonlyArray<{ key: K; count: number }>,
-): Record<K, number> => {
-  const counts = Object.fromEntries(keys.map((key) => [key, 0])) as Record<K, number>;
-  rows.forEach(({ key, count }) => {
-    counts[key] = count;
-  });
-  return counts;
-};
-
 /** Read side of exception management: the queue, the counts, and the investigation view. */
 @Injectable()
 export class ExceptionsQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListExceptionsQuery, actor: RequestActor): Promise<Paginated<ExceptionDto>> {
-    const where = buildExceptionWhere(query, actor);
+    const where = buildExceptionWhere(
+      { ...query, createdAt: { gte: query.from, lte: query.to } },
+      actor,
+    );
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.reconciliationException.findMany({
         where,

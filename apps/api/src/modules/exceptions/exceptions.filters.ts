@@ -10,6 +10,14 @@ import { EXCEPTION_NUMBER_PATTERN } from './exceptions.constants.js';
 
 type ExceptionWhere = Prisma.ReconciliationExceptionWhereInput;
 
+/** The list's filters, reusable by reports; `createdAt` replaces the list's from/to. */
+export interface ExceptionFilters extends Pick<
+  ListExceptionsQuery,
+  'status' | 'type' | 'severity' | 'assignee' | 'source' | 'search'
+> {
+  createdAt?: Prisma.DateTimeFilter;
+}
+
 const assigneeFilter = (
   assignee: ListExceptionsQuery['assignee'],
   actor: RequestActor,
@@ -49,14 +57,14 @@ const searchFilter = (search: string): ExceptionWhere => {
 };
 
 export const buildExceptionWhere = (
-  query: ListExceptionsQuery,
+  query: ExceptionFilters,
   actor: RequestActor,
 ): ExceptionWhere => ({
   status: query.status ? { in: query.status } : undefined,
   type: query.type ? { in: query.type } : undefined,
   severity: query.severity ? { in: query.severity } : undefined,
   assigneeId: assigneeFilter(query.assignee, actor),
-  createdAt: { gte: query.from, lte: query.to },
+  createdAt: query.createdAt,
   AND: [
     query.source
       ? { transactions: { some: { transaction: { source: { code: query.source } } } } }

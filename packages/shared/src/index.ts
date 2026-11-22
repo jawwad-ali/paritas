@@ -29,4 +29,9 @@ export * from './exceptions/exception.schemas.js';
 
 export * from './matches/match.types.js';
 
+export * from './metrics/metrics.types.js';
+export * from './metrics/metrics.schemas.js';
+
+export * from './settings/matching-config.js';
+
 export * from './money/format-money.js';

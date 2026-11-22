@@ -21,6 +21,8 @@ export const AUDIT_ACTIONS = {
   EXCEPTION_IGNORED: 'exception.ignore',
   EXCEPTION_REOPENED: 'exception.reopen',
   EXCEPTION_MANUALLY_MATCHED: 'exception.manual_match',
+  MATCHING_CONFIG_UPDATED: 'matching_config.update',
+  REPORT_EXPORTED: 'report.export',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -30,6 +32,7 @@ export const AUDIT_ENTITY_TYPES = {
   SOURCE: 'source',
   RAW_EVENT: 'raw_event',
   EXCEPTION: 'exception',
+  MATCHING_CONFIG: 'matching_config',
 } as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[keyof typeof AUDIT_ENTITY_TYPES];

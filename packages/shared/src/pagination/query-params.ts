@@ -19,3 +19,23 @@ export const csvEnumParam = <const T extends readonly [string, ...string[]]>(val
     .min(1)
     .transform((raw) => [...new Set(raw.split(',').map((part) => part.trim()))])
     .pipe(z.array(z.enum(values)).min(1));
+
+export const DEFAULT_TIME_ZONE = 'UTC';
+
+const isTimeZone = (value: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** IANA time zone (e.g. `America/New_York`) that days are counted in. Defaults to UTC. */
+export const timeZoneParam = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(isTimeZone, 'Unknown time zone; use an IANA name such as America/New_York.')
+  .default(DEFAULT_TIME_ZONE);

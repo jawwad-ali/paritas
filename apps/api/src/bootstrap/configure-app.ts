@@ -19,7 +19,8 @@ export const configureApp = (app: NestExpressApplication, config: AppConfigServi
   app.enableCors({
     origin: config.get('CORS_ORIGINS'),
     credentials: true,
-    exposedHeaders: [REQUEST_ID_HEADER],
+    // Content-Disposition carries the file name of report downloads.
+    exposedHeaders: [REQUEST_ID_HEADER, 'Content-Disposition'],
   });
   app.setGlobalPrefix(API_GLOBAL_PREFIX);
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: API_DEFAULT_VERSION });

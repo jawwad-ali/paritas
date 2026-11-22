@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 4 (Exception management)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 5 (Dashboard, reports, configurable rules)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -140,7 +140,9 @@ Every created or changed transaction is evaluated against the other side (gatewa
 
 Tolerance = `max(fixed cents, basis points × amount)`, defaults 50¢ / 3% (absorbs Stripe's
 2.9% + 30¢). Defaults: 120-minute window, auto-match ≥ 0.85, candidates ≥ 0.65, missing after 60
-minutes. All rules live in the `matching_config` row and apply without a restart.
+minutes. All rules live in the `matching_config` row, are edited by an admin through
+`PATCH /api/v1/settings/matching` (validated, audited with before/after values) and apply to the
+next evaluation without a restart.
 
 **Self-healing**: when records come to agree (a late counterpart arrives, the ledger books a
 refund, an amount is corrected), the engine matches them and auto-resolves the related
@@ -206,6 +208,40 @@ Design decisions:
   audit entry in the same database transaction. The closure fields (`resolvedAt`,
   `resolutionReason`) are set on close and cleared on reopen, enforced by a `CHECK` constraint.
 - An `EXCLUDED` record can still be matched by the engine if a genuine counterpart arrives later.
+
+### Dashboard and reports
+
+`GET /api/v1/dashboard/overview?period=7d|30d&timeZone=America/New_York` returns everything the
+dashboard renders in one request: records and match rate (overall and per source), successful
+payment volume per currency, exceptions detected and closed (with the median time to close),
+what is open right now (by severity and type, critical, unassigned), a zero-filled daily trend,
+and the five most urgent open exceptions.
+
+| Report                 | Endpoint                                     | Formats        |
+| ---------------------- | -------------------------------------------- | -------------- |
+| Reconciliation summary | `GET /api/v1/reports/reconciliation-summary` | JSON, CSV, PDF |
+| Exception detail       | `GET /api/v1/reports/exceptions`             | CSV, PDF       |
+
+Both take `from` and `to` (calendar days, inclusive, at most 366) and a `timeZone`; the exception
+report also filters by status, type, severity and source.
+
+Design decisions:
+
+- **Days belong to a time zone.** A US team's "Nov 3" is not UTC's. PostgreSQL turns calendar
+  days into exact instants (`AT TIME ZONE`), so daylight-saving days of 23 or 25 hours are
+  counted correctly.
+- **Match rate** = matched records / (all records − excluded records). Declined payments that
+  nobody booked, and records a person accounted for, are not failures to reconcile.
+- **Volumes are per currency**: amounts in different currencies are never added together.
+- **The exception CSV streams** in keyset-paginated batches, so memory stays flat for any size.
+  A PDF is capped at 1,000 rows and refuses beyond that instead of silently truncating an
+  audit document.
+- **Safe to open in Excel**: cells that would run as formulas (`=`, `+`, `-`, `@`) are
+  neutralised (OWASP CSV injection), and a UTF-8 byte-order mark keeps names intact.
+- **PDFs are print-ready**: US Letter, numbered pages, repeated table headers, generated-by and
+  time zone on the cover.
+- **Reports leave the system, so they are audited** (`report.export`: who, which report, period,
+  filters, row count), sent with `Cache-Control: no-store`, and rate-limited to 30 per minute.
 
 ### Simulator (demo data)
 
@@ -310,6 +346,11 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 | `POST /api/v1/exceptions/:id/ignore`            | signed in      | Ignore with a reason                     |
 | `POST /api/v1/exceptions/:id/reopen`            | signed in      | Reopen with a reason                     |
 | `POST /api/v1/exceptions/:id/match`             | signed in      | Manually match two records and close     |
+| `GET /api/v1/dashboard/overview`                | signed in      | Dashboard metrics, trend, priority list  |
+| `GET /api/v1/reports/reconciliation-summary`    | signed in      | Summary report (JSON, CSV, PDF)          |
+| `GET /api/v1/reports/exceptions`                | signed in      | Exception report (CSV, PDF)              |
+| `GET /api/v1/settings/matching`                 | signed in      | Current matching rules                   |
+| `PATCH /api/v1/settings/matching`               | Admin          | Change matching rules (audited)          |
 | `POST /api/v1/simulator/runs`                   | Admin          | Generate demo payments with anomalies    |
 | `POST /api/v1/webhooks/stripe`                  | Stripe         | Stripe events (signature-verified)       |
 | `POST /api/v1/webhooks/internal-ledger`         | Ledger         | Ledger events (HMAC-verified)            |
@@ -335,7 +376,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
 - [x] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
 - [x] **Phase 4**: Exception management workflow (queue, investigation, manual match, audit)
-- [ ] **Phase 5**: Dashboard metrics, reports and export, configurable rules
+- [x] **Phase 5**: Dashboard metrics, reports and export (CSV, PDF), configurable rules
 - [ ] **Phase 6**: Frontend design system
 - [ ] **Phase 7**: Frontend screens
 
