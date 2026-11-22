@@ -12,3 +12,15 @@ export interface UserDto {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Who did something: enough to render a name, nothing more. */
+export interface UserSummaryDto {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/** A user who can be given exceptions to work on. */
+export interface AssigneeDto extends UserSummaryDto {
+  role: UserRole;
+}

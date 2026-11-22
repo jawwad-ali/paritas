@@ -24,4 +24,9 @@ export * from './transactions/transaction.schemas.js';
 export * from './simulator/simulator.js';
 
 export * from './exceptions/exception.constants.js';
+export * from './exceptions/exception.types.js';
+export * from './exceptions/exception.schemas.js';
+
+export * from './matches/match.types.js';
+
 export * from './money/format-money.js';

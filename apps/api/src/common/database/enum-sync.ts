@@ -18,6 +18,9 @@ export const ENUMS_IN_SYNC: {
   exceptionSeverity: Exact<Shared.ExceptionSeverity, Db.ExceptionSeverity>;
   exceptionStatus: Exact<Shared.ExceptionStatus, Db.ExceptionStatus>;
   matchMethod: Exact<Shared.MatchMethod, Db.MatchMethod>;
+  matchStatus: Exact<Shared.MatchStatus, Db.MatchStatus>;
+  exceptionActivityType: Exact<Shared.ExceptionActivityType, Db.ExceptionActivityType>;
+  exceptionTransactionRole: Exact<Shared.ExceptionTransactionRole, Db.ExceptionTransactionRole>;
 } = {
   userRole: true,
   transactionStatus: true,
@@ -28,4 +31,7 @@ export const ENUMS_IN_SYNC: {
   exceptionSeverity: true,
   exceptionStatus: true,
   matchMethod: true,
+  matchStatus: true,
+  exceptionActivityType: true,
+  exceptionTransactionRole: true,
 };

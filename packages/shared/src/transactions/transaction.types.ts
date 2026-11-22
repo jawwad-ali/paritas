@@ -10,6 +10,8 @@ export interface SourceSummaryDto {
   id: string;
   code: SourceCode;
   name: string;
+  /** Which side of a reconciliation this source is on. */
+  kind: SourceKind;
 }
 
 export interface TransactionDto {
@@ -55,7 +57,6 @@ export interface TransactionDetailDto extends TransactionDto {
 }
 
 export interface SourceDto extends SourceSummaryDto {
-  kind: SourceKind;
   isActive: boolean;
   transactionCount: number;
   /** When the newest raw event from this source arrived. */

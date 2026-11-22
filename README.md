@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 3 (Matching engine)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 4 (Exception management)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -156,7 +156,8 @@ escalated one level.
 transaction-scoped advisory lock, so parallel workers on any number of replicas can never pair
 the same record twice. Each evaluation is idempotent and re-reads state under the lock. A
 transaction's status is derived by one rule after every decision (open exception as subject →
-`EXCEPTION`, else active match → `MATCHED`, else `UNMATCHED`), so it cannot drift.
+`EXCEPTION`, else active match → `MATCHED`, else `EXCLUDED` if it was excluded, else
+`UNMATCHED`), so it cannot drift.
 
 **Waiting for the exact counterpart first**: a record that carries a reference is not
 fuzzy-matched until a 2-minute settle window has passed, so a slightly late exact counterpart
@@ -164,6 +165,47 @@ always wins over a guess.
 
 Verified with 600 simulated payments in three concurrent runs: every scenario landed in exactly
 the expected match or exception, with zero invariant violations.
+
+### Exception management
+
+Exceptions are the work queue for what the engine could not settle. People browse them (filter
+by status, type, severity, source, assignee and date; search by `EX-1042`, title, reference,
+external id or customer; sort by priority, newest or oldest), open one to see the records side
+by side with the full timeline, and act on it:
+
+```
+OPEN ──investigate──► INVESTIGATING
+OPEN | INVESTIGATING ──resolve | match──► RESOLVED
+OPEN | INVESTIGATING ──ignore──► IGNORED
+RESOLVED | IGNORED ──reopen──► OPEN
+```
+
+| Action                                                        | Who                                                                                         | Effect on the records                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Add note                                                      | anyone                                                                                      | Timeline only                                                                                                         |
+| Assign                                                        | Officers take unassigned / release their own; managers and admins assign anyone             | Timeline only                                                                                                         |
+| Change severity                                               | Manager, Admin (with a reason)                                                              | Timeline only                                                                                                         |
+| Investigate                                                   | anyone (self-assigns when unassigned)                                                       | None                                                                                                                  |
+| **Manual match**                                              | anyone (with a reason)                                                                      | A `MANUAL` match links the gateway and ledger record; the engine re-checks the pair at once                           |
+| Resolve / Ignore                                              | anyone (ignoring a `CRITICAL` one needs a manager or admin); reason required, note optional | Unmatched subjects become `EXCLUDED`: accounted for by a person, no longer chased by the engine                       |
+| Reject a suggestion (resolve/ignore a `LOW_CONFIDENCE_MATCH`) | anyone                                                                                      | Both records return to `UNMATCHED`; that pair is never proposed again, so they find another match or become `MISSING` |
+| Reopen                                                        | anyone (with a reason)                                                                      | Subjects are held in `EXCEPTION` again                                                                                |
+
+Design decisions:
+
+- **A manual match asserts identity, not agreement.** After linking, the engine re-validates the
+  pair: it auto-resolves what the match settles (e.g. the counterpart's own `MISSING`), and a real
+  difference (amount beyond tolerance, status conflict) still surfaces as its own exception.
+- **Manual-match suggestions** (`GET /transactions/:id/match-candidates`) use the engine's own
+  scoring with relaxed limits (3-day window, 20% tolerance), so a person can judge records the
+  engine would never pair on its own. A shared reference always ranks first.
+- **People and the engine never decide at the same time.** Every status change takes the same
+  per-currency advisory lock as the engine and re-reads under it; updates are conditional on the
+  status read, so two people acting at once get one success and one `409 Conflict`.
+- **Everything is on the record.** Each action appends to the exception's timeline and writes an
+  audit entry in the same database transaction. The closure fields (`resolvedAt`,
+  `resolutionReason`) are set on close and cleared on reopen, enforced by a `CHECK` constraint.
+- An `EXCLUDED` record can still be matched by the engine if a genuine counterpart arrives later.
 
 ### Simulator (demo data)
 
@@ -239,25 +281,38 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 
 ### API at a glance
 
-| Method & path                           | Who            | What                                     |
-| --------------------------------------- | -------------- | ---------------------------------------- |
-| `POST /api/v1/auth/login`               | anyone         | Sign in                                  |
-| `POST /api/v1/auth/refresh`             | cookie         | New access token (rotates the cookie)    |
-| `POST /api/v1/auth/logout`              | cookie         | End the session                          |
-| `GET /api/v1/auth/me`                   | signed in      | Current user                             |
-| `POST /api/v1/auth/change-password`     | signed in      | Change password, sign out other sessions |
-| `GET/POST /api/v1/users`                | Admin          | List / create users                      |
-| `GET/PATCH /api/v1/users/:id`           | Admin          | Read / update name, role, active status  |
-| `GET /api/v1/audit-logs`                | Admin, Manager | Search the audit trail                   |
-| `GET /api/v1/transactions`              | signed in      | Normalised transactions, filterable      |
-| `GET /api/v1/transactions/:id`          | signed in      | One transaction + its raw source event   |
-| `GET /api/v1/sources`                   | signed in      | Sources with volume and last activity    |
-| `PATCH /api/v1/sources/:id`             | Admin          | Enable / disable a source                |
-| `GET /api/v1/raw-events[/:id]`          | Admin, Manager | Inbound events as received               |
-| `POST /api/v1/raw-events/:id/replay`    | Admin          | Re-process a failed or ignored event     |
-| `POST /api/v1/simulator/runs`           | Admin          | Generate demo payments with anomalies    |
-| `POST /api/v1/webhooks/stripe`          | Stripe         | Stripe events (signature-verified)       |
-| `POST /api/v1/webhooks/internal-ledger` | Ledger         | Ledger events (HMAC-verified)            |
+| Method & path                                   | Who            | What                                     |
+| ----------------------------------------------- | -------------- | ---------------------------------------- |
+| `POST /api/v1/auth/login`                       | anyone         | Sign in                                  |
+| `POST /api/v1/auth/refresh`                     | cookie         | New access token (rotates the cookie)    |
+| `POST /api/v1/auth/logout`                      | cookie         | End the session                          |
+| `GET /api/v1/auth/me`                           | signed in      | Current user                             |
+| `POST /api/v1/auth/change-password`             | signed in      | Change password, sign out other sessions |
+| `GET/POST /api/v1/users`                        | Admin          | List / create users                      |
+| `GET/PATCH /api/v1/users/:id`                   | Admin          | Read / update name, role, active status  |
+| `GET /api/v1/audit-logs`                        | Admin, Manager | Search the audit trail                   |
+| `GET /api/v1/transactions`                      | signed in      | Normalised transactions, filterable      |
+| `GET /api/v1/transactions/:id`                  | signed in      | One transaction + its raw source event   |
+| `GET /api/v1/sources`                           | signed in      | Sources with volume and last activity    |
+| `PATCH /api/v1/sources/:id`                     | Admin          | Enable / disable a source                |
+| `GET /api/v1/raw-events[/:id]`                  | Admin, Manager | Inbound events as received               |
+| `POST /api/v1/raw-events/:id/replay`            | Admin          | Re-process a failed or ignored event     |
+| `GET /api/v1/transactions/:id/match-candidates` | signed in      | Suggestions for a manual match           |
+| `GET /api/v1/exceptions`                        | signed in      | Browse: filter, search, sort, paginate   |
+| `GET /api/v1/exceptions/stats`                  | signed in      | Counts for queue tabs and badges         |
+| `GET /api/v1/exceptions/assignees`              | signed in      | Active users to assign to                |
+| `GET /api/v1/exceptions/:id`                    | signed in      | Records side by side + timeline          |
+| `POST /api/v1/exceptions/:id/notes`             | signed in      | Add a note                               |
+| `PATCH /api/v1/exceptions/:id/assignee`         | signed in      | Assign / unassign (see rules above)      |
+| `PATCH /api/v1/exceptions/:id/severity`         | Admin, Manager | Change severity with a reason            |
+| `POST /api/v1/exceptions/:id/investigate`       | signed in      | Start investigating                      |
+| `POST /api/v1/exceptions/:id/resolve`           | signed in      | Resolve with a reason                    |
+| `POST /api/v1/exceptions/:id/ignore`            | signed in      | Ignore with a reason                     |
+| `POST /api/v1/exceptions/:id/reopen`            | signed in      | Reopen with a reason                     |
+| `POST /api/v1/exceptions/:id/match`             | signed in      | Manually match two records and close     |
+| `POST /api/v1/simulator/runs`                   | Admin          | Generate demo payments with anomalies    |
+| `POST /api/v1/webhooks/stripe`                  | Stripe         | Stripe events (signature-verified)       |
+| `POST /api/v1/webhooks/internal-ledger`         | Ledger         | Ledger events (HMAC-verified)            |
 
 ### Useful scripts
 
@@ -279,7 +334,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 1**: Data model, authentication and roles, audit log
 - [x] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
 - [x] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
-- [ ] **Phase 4**: Exception management workflow
+- [x] **Phase 4**: Exception management workflow (queue, investigation, manual match, audit)
 - [ ] **Phase 5**: Dashboard metrics, reports and export, configurable rules
 - [ ] **Phase 6**: Frontend design system
 - [ ] **Phase 7**: Frontend screens

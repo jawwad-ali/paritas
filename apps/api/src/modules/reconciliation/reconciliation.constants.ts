@@ -62,3 +62,12 @@ export const LOCK_KEY_PREFIX = 'paritas:reconcile:';
 export const MATCHING_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 20_000 } as const;
 
 export const RECONCILIATION_CONCURRENCY = 5;
+
+/**
+ * Manual-match suggestions use relaxed rules: a person can judge records the
+ * engine would never pair on its own (late bookings, fee-sized differences).
+ */
+export const MANUAL_REVIEW_WINDOW_MINUTES = 3 * 24 * 60;
+export const MANUAL_REVIEW_TOLERANCE_BPS = 2_000;
+export const MANUAL_CANDIDATE_SCAN_LIMIT = 200;
+export const MAX_MANUAL_CANDIDATES = 10;

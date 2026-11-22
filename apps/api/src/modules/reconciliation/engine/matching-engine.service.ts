@@ -1,20 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SourceKind } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../infrastructure/database/prisma.service.js';
 import { ReconciliationQueueService } from '../reconciliation-queue.service.js';
-import { LOCK_KEY_PREFIX, MATCHING_TRANSACTION_OPTIONS } from '../reconciliation.constants.js';
-import type { EvaluationMode, Pair, TransactionWithSource } from '../reconciliation.types.js';
+import { MATCHING_TRANSACTION_OPTIONS } from '../reconciliation.constants.js';
+import type { EvaluationMode, TransactionWithSource } from '../reconciliation.types.js';
 import { duplicateSpec } from '../rules/exception-specs.js';
+import { orient } from '../rules/sides.js';
 import { CandidateFinder } from './candidate-finder.js';
+import { lockCurrencies } from './currency-lock.js';
 import { DecisionHandlers, type Evaluation } from './decision-handlers.js';
 import { ExceptionWriter } from './exception-writer.js';
 import { MatchingConfigService } from './matching-config.service.js';
 import { StatusRecalculator } from './status-recalculator.js';
-
-const orient = (a: TransactionWithSource, b: TransactionWithSource): Pair =>
-  a.source.kind === SourceKind.PAYMENT_GATEWAY
-    ? { gateway: a, ledger: b }
-    : { gateway: b, ledger: a };
 
 /**
  * Reconciles one transaction against the other side and converges the database
@@ -50,7 +46,7 @@ export class MatchingEngine {
     }
 
     const freed = await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${LOCK_KEY_PREFIX + head.currency}))`;
+      await lockCurrencies(tx, [head.currency]);
       // Re-read under the lock: this is the state every decision is based on.
       const txn = await tx.transaction.findUnique({
         where: { id: transactionId },

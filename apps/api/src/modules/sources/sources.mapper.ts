@@ -15,11 +15,12 @@ const toSourceCode = (code: string): SourceCode => {
 };
 
 export const toSourceSummaryDto = (
-  source: Pick<Source, 'id' | 'code' | 'name'>,
+  source: Pick<Source, 'id' | 'code' | 'name' | 'kind'>,
 ): SourceSummaryDto => ({
   id: source.id,
   code: toSourceCode(source.code),
   name: source.name,
+  kind: source.kind,
 });
 
 export interface SourceStats {
@@ -29,7 +30,6 @@ export interface SourceStats {
 
 export const toSourceDto = (source: Source, stats: SourceStats): SourceDto => ({
   ...toSourceSummaryDto(source),
-  kind: source.kind,
   isActive: source.isActive,
   transactionCount: stats.transactionCount,
   lastEventReceivedAt: stats.lastEventReceivedAt?.toISOString() ?? null,

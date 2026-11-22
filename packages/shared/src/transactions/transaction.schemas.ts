@@ -8,11 +8,11 @@ import {
   TRANSACTION_STATUSES,
 } from './transaction.constants.js';
 
-const sourceCodeSchema = z.enum([SOURCE_CODES.STRIPE, SOURCE_CODES.INTERNAL_LEDGER]);
+export const sourceCodeSchema = z.enum([SOURCE_CODES.STRIPE, SOURCE_CODES.INTERNAL_LEDGER]);
 
-const dateRangeIsOrdered = (query: { from?: Date; to?: Date }): boolean =>
+export const dateRangeIsOrdered = (query: { from?: Date; to?: Date }): boolean =>
   !query.from || !query.to || query.from <= query.to;
-const DATE_RANGE_ERROR = { path: ['to'], message: '`to` must be on or after `from`.' };
+export const DATE_RANGE_ERROR = { path: ['to'], message: '`to` must be on or after `from`.' };
 
 export const listTransactionsQuerySchema = paginationQuerySchema
   .extend({

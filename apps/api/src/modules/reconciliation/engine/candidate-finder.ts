@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import {
   ExceptionStatus,
   ExceptionTransactionRole,
+  ExceptionType,
   MatchStatus,
   type Prisma,
   ReconciliationStatus,
-  SourceKind,
 } from '../../../generated/prisma/client.js';
 import {
   AMBIGUITY_MARGIN,
@@ -19,10 +19,12 @@ import type {
   TransactionWithSource,
 } from '../reconciliation.types.js';
 import { amountTolerance, scoreCandidate } from '../rules/scoring.js';
+import { otherSide } from '../rules/sides.js';
 
 type Tx = Prisma.TransactionClient;
 
 const OPEN_STATUSES = [ExceptionStatus.OPEN, ExceptionStatus.INVESTIGATING];
+const CLOSED_STATUSES = [ExceptionStatus.RESOLVED, ExceptionStatus.IGNORED];
 const MAX_FUZZY_CANDIDATES = 50;
 /** Deterministic "first" record: the earliest payment, then the earliest ingested. */
 const CHRONOLOGICAL: Prisma.TransactionOrderByWithRelationInput[] = [
@@ -30,11 +32,6 @@ const CHRONOLOGICAL: Prisma.TransactionOrderByWithRelationInput[] = [
   { createdAt: 'asc' },
   { id: 'asc' },
 ];
-
-const otherSide = (txn: TransactionWithSource): SourceKind =>
-  txn.source.kind === SourceKind.PAYMENT_GATEWAY
-    ? SourceKind.INTERNAL_LEDGER
-    : SourceKind.PAYMENT_GATEWAY;
 
 /** Finds the record on the other side that represents the same payment. */
 @Injectable()
@@ -134,9 +131,14 @@ export class CandidateFinder {
       take: MAX_FUZZY_CANDIDATES,
     });
 
+    const rejected = await this.rejectedPartners(
+      tx,
+      txn.id,
+      candidates.map((candidate) => candidate.id),
+    );
     const scored: Array<{ other: TransactionWithSource; breakdown: ScoreBreakdown }> = [];
     for (const candidate of candidates) {
-      const breakdown = scoreCandidate(txn, candidate, rules);
+      const breakdown = rejected.has(candidate.id) ? null : scoreCandidate(txn, candidate, rules);
       if (breakdown && !(await this.isBlocked(tx, candidate.id, txn.id))) {
         scored.push({ other: candidate, breakdown });
       }
@@ -170,5 +172,32 @@ export class CandidateFinder {
       },
     });
     return blocking > 0;
+  }
+
+  /**
+   * Candidates a person already ruled out for this transaction: a suggested
+   * (low-confidence) pairing they closed without matching. Never propose it again.
+   */
+  private async rejectedPartners(
+    tx: Tx,
+    subjectId: string,
+    candidateIds: string[],
+  ): Promise<Set<string>> {
+    if (candidateIds.length === 0) {
+      return new Set();
+    }
+    const links = await tx.exceptionTransaction.findMany({
+      where: {
+        transactionId: { in: candidateIds },
+        exception: {
+          type: ExceptionType.LOW_CONFIDENCE_MATCH,
+          status: { in: CLOSED_STATUSES },
+          resolvedById: { not: null },
+          transactions: { some: { transactionId: subjectId } },
+        },
+      },
+      select: { transactionId: true },
+    });
+    return new Set(links.map((link) => link.transactionId));
   }
 }

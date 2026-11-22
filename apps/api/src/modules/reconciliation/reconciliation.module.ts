@@ -6,6 +6,7 @@ import { MatchWriter } from './engine/match-writer.js';
 import { MatchingConfigService } from './engine/matching-config.service.js';
 import { MatchingEngine } from './engine/matching-engine.service.js';
 import { StatusRecalculator } from './engine/status-recalculator.js';
+import { MatchCandidatesService } from './match-candidates.service.js';
 import { ReconciliationQueueService } from './reconciliation-queue.service.js';
 import { ReconciliationProcessor } from './reconciliation.processor.js';
 import { ReconciliationSweeper } from './reconciliation-sweeper.service.js';
@@ -28,7 +29,14 @@ import { ReconciliationSweeper } from './reconciliation-sweeper.service.js';
     ExceptionWriter,
     MatchWriter,
     StatusRecalculator,
+    MatchCandidatesService,
   ],
-  exports: [ReconciliationQueueService, MatchingEngine],
+  exports: [
+    ReconciliationQueueService,
+    MatchingEngine,
+    MatchingConfigService,
+    StatusRecalculator,
+    MatchCandidatesService,
+  ],
 })
 export class ReconciliationModule {}
