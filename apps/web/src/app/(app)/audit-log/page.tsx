@@ -1,16 +1,25 @@
 import type { Metadata } from 'next';
-import { ScrollText } from 'lucide-react';
-import { PlannedScreen } from '@/components/layout/planned-screen';
+import { Suspense } from 'react';
+import { TableSkeleton } from '@/components/data/table-skeleton';
+import { PageContainer } from '@/components/layout/page-container';
+import { PageHeader } from '@/components/layout/page-header';
+import { RequireRole } from '@/components/layout/require-role';
+import { AuditView } from '@/features/admin/audit/audit-view';
 
 export const metadata: Metadata = { title: 'Audit log' };
 
 const AuditLogPage = () => (
-  <PlannedScreen
-    title="Audit log"
-    description="Every important action, append-only."
-    icon={ScrollText}
-    purpose="Search who did what, and when, across the whole system."
-  />
+  <PageContainer>
+    <PageHeader
+      title="Audit log"
+      description="Every important action, newest first. Entries cannot be edited or deleted, not even by the application."
+    />
+    <RequireRole roles={['ADMIN', 'MANAGER']}>
+      <Suspense fallback={<TableSkeleton columns={5} />}>
+        <AuditView />
+      </Suspense>
+    </RequireRole>
+  </PageContainer>
 );
 
 export default AuditLogPage;

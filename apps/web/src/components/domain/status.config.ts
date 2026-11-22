@@ -1,4 +1,9 @@
-import type { ExceptionStatus, ExceptionType, ReconciliationStatus } from '@paritas/shared';
+import type {
+  ExceptionStatus,
+  ExceptionType,
+  ReconciliationStatus,
+  TransactionStatus,
+} from '@paritas/shared';
 import {
   ArrowLeftRight,
   CircleCheck,
@@ -59,4 +64,12 @@ export const EXCEPTION_TYPE_ICONS: Record<ExceptionType, LucideIcon> = {
   DELAYED: Clock,
   LOW_CONFIDENCE_MATCH: CircleHelp,
   OTHER: TriangleAlert,
+};
+
+/** A payment's own lifecycle, as each source reports it. */
+export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
+  PENDING: 'Pending',
+  SUCCEEDED: 'Succeeded',
+  FAILED: 'Failed',
+  REFUNDED: 'Refunded',
 };

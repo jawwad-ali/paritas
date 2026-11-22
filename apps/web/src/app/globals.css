@@ -65,6 +65,10 @@
   --color-sev-low-bg: var(--sev-low-bg);
   --color-sev-low-fg: var(--sev-low-fg);
 
+  /* Chart series (validated by the dataviz palette checks in light and dark): settled vs needs attention. */
+  --color-series-settled: var(--series-settled);
+  --color-series-attention: var(--series-attention);
+
   /* Record reconciliation status. */
   --color-matched: var(--matched);
   --color-matched-bg: var(--matched-bg);
@@ -135,6 +139,9 @@
   --matched: #0a9396;
   --matched-bg: #e3f3ed;
   --matched-fg: #0b5e60;
+
+  --series-settled: #0a9396;
+  --series-attention: #ca6702;
 }
 
 .dark {
@@ -189,6 +196,9 @@
   --matched: #94d2bd;
   --matched-bg: #0a2622;
   --matched-fg: #94d2bd;
+
+  --series-settled: #0a9396;
+  --series-attention: #ca6702;
 }
 
 @layer base {

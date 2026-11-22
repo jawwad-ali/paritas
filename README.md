@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 6 (Frontend design system)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 7 (Frontend screens)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -286,6 +286,25 @@ source and on the rendered sign-in page). Verified in a real browser: one `<main
 content", 44px touch targets on coarse pointers, motion off under reduced-motion except the
 loading spinner.
 
+### Screens
+
+| Screen                                                        | What people do there                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard**                                                 | Last 7 or 30 days in their own time zone: records and match rate (footnoted), open and critical exceptions, median time to close, the five most urgent exceptions, open count by severity, records and exceptions per day, per-source match rate, successful volume per currency. Admins can simulate payments.                                                         |
+| **Exceptions**                                                | The work queue: Open, Assigned to me, Unassigned, Closed and All views with live counts; severity, type and source filters; search by `EX-1042`, reference or customer; most urgent first. Filters, search and page live in the URL.                                                                                                                                    |
+| **Investigation**                                             | The two records side by side with a centre rail marking each field as agreeing or differing, a plain-words explanation of the exception type, the full timeline, notes, and the decision panel: find a match (the engine's suggestions with score breakdowns), start investigating, resolve, ignore, reopen, assign, change severity. Every decision asks for a reason. |
+| **Transactions**                                              | Every normalised record, filterable by source, payment status, reconciliation status and dates; a side panel shows the record and the raw event exactly as received.                                                                                                                                                                                                    |
+| **Reports**                                                   | Live preview of the reconciliation summary; CSV and PDF downloads of the summary and of the exception report, with filters.                                                                                                                                                                                                                                             |
+| **Matching rules, Sources, Users, Audit log, Inbound events** | Rules explained in plain words (admins edit them); pause or resume a source; add users, change roles, deactivate; search the audit trail; inspect and replay webhooks.                                                                                                                                                                                                  |
+
+Role rules are mirrored in the interface (an officer never sees an action the API would refuse) and
+enforced by the API on every request. Charts are plain SVG with a data table under each; their two
+series colours passed the dataviz palette checks (lightness, chroma, colour-vision separation,
+contrast) in light and dark. Verified in a real browser: every route has one `<main>`, labelled
+navigation landmarks, no skipped heading levels, no unlabelled controls; the manual-match,
+note, resolve, reopen, rules, report and role flows run end to end; Impeccable's detector reports
+no findings on the source or on the rendered pages.
+
 ### Simulator (demo data)
 
 `POST /api/v1/simulator/runs` (Admin) plays both the merchant's checkout and its internal ledger,
@@ -421,7 +440,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 4**: Exception management workflow (queue, investigation, manual match, audit)
 - [x] **Phase 5**: Dashboard metrics, reports and export (CSV, PDF), configurable rules
 - [x] **Phase 6**: Frontend design system (tokens, components, app shell, sign-in, session handling)
-- [ ] **Phase 7**: Frontend screens
+- [x] **Phase 7**: Frontend screens (dashboard, exception queue and investigation, transactions, reports, administration)
 
 ## License
 

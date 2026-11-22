@@ -1,16 +1,22 @@
 import type { Metadata } from 'next';
-import { ArrowLeftRight } from 'lucide-react';
-import { PlannedScreen } from '@/components/layout/planned-screen';
+import { Suspense } from 'react';
+import { TableSkeleton } from '@/components/data/table-skeleton';
+import { PageContainer } from '@/components/layout/page-container';
+import { PageHeader } from '@/components/layout/page-header';
+import { TransactionsView } from '@/features/transactions/components/transactions-view';
 
 export const metadata: Metadata = { title: 'Transactions' };
 
 const TransactionsPage = () => (
-  <PlannedScreen
-    title="Transactions"
-    description="Every record from Stripe and the internal ledger, normalised."
-    icon={ArrowLeftRight}
-    purpose="Search and filter records by source, date, status and reconciliation state."
-  />
+  <PageContainer>
+    <PageHeader
+      title="Transactions"
+      description="Every record from Stripe and the internal ledger, in one normalised format."
+    />
+    <Suspense fallback={<TableSkeleton />}>
+      <TransactionsView />
+    </Suspense>
+  </PageContainer>
 );
 
 export default TransactionsPage;

@@ -30,7 +30,7 @@ export const Identifier = ({ value, copyable = false, className }: IdentifierPro
   };
 
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
+    <span className={cn('inline-flex max-w-full min-w-0 items-center gap-1', className)}>
       <span className="truncate font-mono text-[0.8125rem]">{value}</span>
       {copyable && (
         <Tooltip>

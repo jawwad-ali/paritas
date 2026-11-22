@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
-import { SlidersHorizontal } from 'lucide-react';
-import { PlannedScreen } from '@/components/layout/planned-screen';
+import { PageContainer } from '@/components/layout/page-container';
+import { PageHeader } from '@/components/layout/page-header';
+import { MatchingRulesView } from '@/features/admin/matching/matching-rules-view';
 
 export const metadata: Metadata = { title: 'Matching rules' };
 
-const SettingsMatchingPage = () => (
-  <PlannedScreen
-    title="Matching rules"
-    description="The tolerances and thresholds the matching engine applies."
-    icon={SlidersHorizontal}
-    purpose="See every rule the engine uses; administrators can change them without a deploy."
-  />
+const MatchingRulesPage = () => (
+  <PageContainer>
+    <PageHeader
+      title="Matching rules"
+      description="Exact matches use the shared reference. Everything else is scored on amount (45%), customer (30%) and time (25%) within these limits."
+    />
+    <MatchingRulesView />
+  </PageContainer>
 );
 
-export default SettingsMatchingPage;
+export default MatchingRulesPage;
