@@ -1,5 +1,6 @@
 # Paritas
 
+![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white)
@@ -13,6 +14,9 @@
 **Automated transaction reconciliation for finance teams.** Paritas checks every Stripe payment
 against the company's own ledger as it happens, matches the two records automatically, and turns
 every difference into a tracked case that a person can investigate and close.
+
+**Live demo: [paritas-nu.vercel.app](https://paritas-nu.vercel.app)**. Sign in with one click as
+an Admin, Manager or Officer, then press "Simulate payments" on the dashboard. Test data only.
 
 ## At a Glance
 
@@ -33,7 +37,8 @@ every difference into a tracked case that a person can investigate and close.
 [Request / Response Flow](#request--response-flow) ·
 [Key Decisions](#key-technical-decisions-and-trade-offs) ·
 [Challenges](#challenges-and-how-they-were-solved) · [Future Improvements](#future-improvements) ·
-[API at a Glance](#api-at-a-glance) · [Roadmap](#roadmap)
+[Deploying to Vercel](#deploying-to-vercel) · [API at a Glance](#api-at-a-glance) ·
+[Roadmap](#roadmap)
 
 ## What This Project Does
 
@@ -99,6 +104,10 @@ The main parts and how they talk:
   answer at once. The real work happens later in background **workers**.
 - **Redis + BullMQ** carry two job queues: "process this raw event" and "match this transaction".
   Jobs retry with backoff, so a short database or network problem does not lose data.
+- **Two job runners, one code path.** Docker uses the BullMQ queues above (`JOB_RUNNER=queue`).
+  The live demo runs on Vercel Functions, which have no long-running worker, so there the same
+  handlers run inside the request (`JOB_RUNNER=inline`) and the minute sweeps are started by app
+  traffic and a daily cron. See [Deploying to Vercel](#deploying-to-vercel).
 - **PostgreSQL** holds everything, including rules the database itself enforces (CHECK constraints,
   unique keys, a trigger that makes the audit log append-only).
 - **The web app** is a pure client of the REST API. It never talks to the database. Errors follow
@@ -145,6 +154,7 @@ matching_config   (single row: tolerances, time window, confidence thresholds)
 | **TanStack Query 5**              | Server data in the browser               | Caching, background refresh (the dashboard follows the engine once a minute) and cache invalidation after each action.                                                           |
 | **Tailwind CSS 4 + shadcn/ui**    | Styling and components                   | Accessible Radix-based components (dialogs, menus, focus handling) styled with the project's own design tokens.                                                                  |
 | **Docker + Docker Compose**       | Local stack and deployable images        | One command starts PostgreSQL, Redis, a migration job, the API and the web app.                                                                                                  |
+| **Vercel + Neon**                 | Live demo hosting                        | Free and serverless: the web app and the API are two Vercel projects from one repository, and Neon is serverless PostgreSQL connected through the Vercel Marketplace.            |
 
 ## Main Features and How They Work
 
@@ -453,6 +463,8 @@ closes it.
 | **Shared Zod schemas** between API and web                                   | One definition of "valid" for each request; forms show the same messages the API would.                      | The web bundle includes Zod, and both apps must upgrade it together.                                                          |
 | **No script-level Content-Security-Policy** on the web app                   | Next.js and the theme script run inline; a nonce-based CSP would force every page to render on each request. | Weaker protection against injected scripts; the other headers (framing, `nosniff`, referrer, HSTS) are sent.                  |
 | **Migrations as a one-off container**, not on API start-up                   | Several API replicas never race to migrate the same database.                                                | A deployment has one extra step to run first (Compose does it automatically).                                                 |
+| **An inline job runner for serverless hosting**                              | Vercel Functions cannot run BullMQ workers; the same handlers run inside the request instead, with no Redis. | No automatic retries (the sweep retries a failed event once, then an admin can replay it) and slower webhook replies.         |
+| **Sweeps started by traffic** on Vercel, plus a daily cron                   | The free plan allows one cron run a day; the dashboard refreshes every minute, so traffic keeps the pace.    | With nobody using the app, MISSING and DELAYED cases appear at the next visit instead of within a minute.                     |
 
 ## Challenges and How They Were Solved
 
@@ -493,6 +505,17 @@ closes it.
    `pg` warns will stop working in its next major version. Under PostgreSQL's default isolation
    that transaction added no consistency, so the two queries now run in parallel on separate
    connections: the warning is gone and the endpoints are slightly faster.
+9. **The API crashed on Vercel but not locally.** Every request failed with `ERR_REQUIRE_ESM`.
+   `@nestjs/throttler` and `nestjs-pino` are CommonJS and `require()` Nest 12, which is ESM only.
+   Node 24 allows that, so it worked locally, but the Vercel Functions loader does not, and no ESM
+   versions of those packages exist. The fix: bundle the compiled function with esbuild
+   (`apps/api/scripts/bundle-serverless.mjs`), so those requires are resolved at build time. The
+   failure was reproduced locally with `node --no-experimental-require-module`, and the bundle
+   passes the same end-to-end check.
+10. **Login cookies across two Vercel domains.** The web app and the API live on different
+    `*.vercel.app` domains, which browsers treat as different sites, so the refresh cookie would be
+    dropped as third-party. The fix: the web app forwards `/api/v1/*` to the API (a Next.js
+    rewrite), so the browser only ever talks to one site and the cookie stays first-party.
 
 ## Future Improvements
 
@@ -509,6 +532,8 @@ closes it.
   currency.
 - **Observability:** OpenTelemetry traces across webhook → queue → engine, and queue-depth metrics.
 - **Automated end-to-end tests in CI** for the main flows (they are verified manually today).
+- **Per-minute sweeps on Vercel** without relying on traffic: a paid plan's per-minute cron, or a
+  managed queue (Upstash QStash) that would also bring back retries with backoff.
 
 ## Getting Started
 
@@ -543,7 +568,7 @@ pnpm stack:up
 | `paritas-migrate` | Prisma CLI, schema engine, migrations and the compiled seed |
 | `paritas-web`     | Next.js standalone server (non-root)                        |
 
-### Demo accounts (local only)
+### Demo accounts
 
 | Role    | Name             | Email                         | Password            |
 | ------- | ---------------- | ----------------------------- | ------------------- |
@@ -551,7 +576,8 @@ pnpm stack:up
 | Manager | Denise Fairbanks | `manager@paritas.example.com` | `Paritas-Demo-2026` |
 | Officer | Carmen Ruelas    | `officer@paritas.example.com` | `Paritas-Demo-2026` |
 
-The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
+The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env` (on Vercel, from the API project's
+environment). The same accounts sign in to the live demo.
 
 | URL                                    | What                 |
 | -------------------------------------- | -------------------- |
@@ -574,6 +600,51 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 | `pnpm db:seed`    | Load idempotent demo data                |
 | `pnpm db:studio`  | Browse the database in Prisma Studio     |
 | `pnpm stack:up`   | Build and start the full stack in Docker |
+
+## Deploying to Vercel
+
+The live demo runs as two Vercel projects built from this repository, with Neon PostgreSQL: no
+Redis and no server.
+
+```
+Browser ──▶ paritas-nu.vercel.app (Next.js) ──/api/v1/* rewrite──▶ paritas-api.vercel.app (Vercel Function)
+                                                                           │
+                                                                           ▼
+                                                                    Neon PostgreSQL
+```
+
+| Project       | Root directory | Config                 | What it does                                                    |
+| ------------- | -------------- | ---------------------- | --------------------------------------------------------------- |
+| `paritas`     | `apps/web`     | `apps/web/vercel.json` | Next.js app; forwards `/api/v1/*` to the API (`API_PROXY_URL`)  |
+| `paritas-api` | `apps/api`     | `apps/api/vercel.json` | One Vercel Function (`api/index.js`) serving the whole Nest API |
+
+**How the API project builds** (`apps/api/scripts/vercel-build.mjs`):
+
+1. Builds the shared package and the API with `nest build`.
+2. Bundles `dist/serverless.js` into one ES module with esbuild (see challenge 9).
+3. Production builds only: `prisma migrate deploy` over the direct connection
+   (`DATABASE_URL_UNPOOLED`), then the idempotent seed. Preview builds touch no database.
+
+**Background work without workers.** `JOB_RUNNER=inline` processes each event and runs matching
+inside the request. The sweeps (stuck events, MISSING, DELAYED) start from traffic, at most once a
+minute per function instance, after the response is sent (`waitUntil`). A daily Vercel Cron calls
+`GET /api/v1/internal/cron/sweep` with `Authorization: Bearer $CRON_SECRET` as a backstop.
+
+**Environment variables**
+
+| Project       | Variable                                              | Value                                                   |
+| ------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| `paritas-api` | `DATABASE_URL`, `DATABASE_URL_UNPOOLED`               | Added by the Neon integration (pooled / direct)         |
+| `paritas-api` | `JOB_RUNNER`                                          | `inline`                                                |
+| `paritas-api` | `JWT_ACCESS_SECRET`, `INTERNAL_LEDGER_WEBHOOK_SECRET` | Random, 32+ characters each                             |
+| `paritas-api` | `CRON_SECRET`                                         | Random, 32+ characters (Vercel Cron sends it)           |
+| `paritas-api` | `CORS_ORIGINS`                                        | The web app's URL                                       |
+| `paritas-api` | `NODE_ENV`, `TRUST_PROXY_HOPS`, `AUTH_COOKIE_SECURE`  | `production`, `1`, `true`                               |
+| `paritas-api` | `SIMULATOR_ENABLED`, `SEED_DEMO_PASSWORD`             | Demo deployment only                                    |
+| `paritas`     | `API_PROXY_URL`                                       | The API project's production domain                     |
+| `paritas`     | `NEXT_PUBLIC_DEMO_PASSWORD`                           | Demo deployment only: shows the one-click demo accounts |
+
+Every push to `main` redeploys the projects whose files changed.
 
 ## API at a Glance
 
@@ -614,6 +685,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 | `POST /api/v1/simulator/runs`                   | Admin          | Generate demo payments with anomalies    |
 | `POST /api/v1/webhooks/stripe`                  | Stripe         | Stripe events (signature-verified)       |
 | `POST /api/v1/webhooks/internal-ledger`         | Ledger         | Ledger events (HMAC-verified)            |
+| `GET /api/v1/internal/cron/sweep`               | Vercel Cron    | Run the sweeps (needs `CRON_SECRET`)     |
 
 ## Roadmap
 
@@ -626,6 +698,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 6**: Frontend design system (tokens, components, app shell, sign-in, session handling)
 - [x] **Phase 7**: Frontend screens (dashboard, exception queue and investigation, transactions, reports, administration)
 - [x] **Phase 8**: Polish (smaller Docker images, change password, error and 404 pages, security headers, docs)
+- [x] **Phase 9**: Live on Vercel (inline job runner, bundled API function, Neon, same-origin proxy)
 
 ## License
 
