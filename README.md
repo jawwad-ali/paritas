@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 5 (Dashboard, reports, configurable rules)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 6 (Frontend design system)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -243,6 +243,49 @@ Design decisions:
 - **Reports leave the system, so they are audited** (`report.export`: who, which report, period,
   filters, row count), sent with `Cache-Control: no-store`, and rate-limited to 30 per minute.
 
+### Web app and design system
+
+The web app (`apps/web`, Next.js 16 App Router, Tailwind CSS 4, shadcn/ui on Radix) is a client of
+the API. Open `/design-system` after signing in to see every token and component rendered by the
+real code.
+
+**Visual system**
+
+- **Palette:** coolors "Ocean Sunset" (`#001219 #005f73 #0a9396 #94d2bd #e9d8a6 #ee9b00 #ca6702
+#bb3e03 #ae2012 #9b2226`), chosen from 169 trending and popular palettes because its run maps
+  one-to-one onto the product: ink and petrol for the shell and actions, mint for matched, and
+  sand → amber → orange → rust → crimson as the severity ladder. Neutrals are tinted from the ink.
+  Light and dark themes; every text pairing is WCAG 2.2 AA (computed), form-control borders 3:1.
+- **Type:** Yantramanav throughout. Its figures are tabular by design (every digit is one width),
+  so money columns align digit for digit; JetBrains Mono only for identifiers (`pi_3QgT8a`,
+  `LED-7Q2K9`), where 0/O and 1/l must stay apart.
+- **Signatures:** an ink navigation rail (the one committed field of colour); severity as a
+  four-tick meter plus a row edge, so it never relies on colour alone; headline figures with
+  footnote keys that say how each number is computed; on sign-in, the matching engine shown at
+  work comparing two records field by field.
+- Sharp radius (fintech reads precise), one button family, one radius scale, icons on every status.
+
+**Session handling**
+
+- The access token lives in memory only (never `localStorage`); a reload restores it from the
+  httpOnly refresh cookie.
+- One refresh at a time: concurrent 401s share one renewal, and tabs coordinate through the Web
+  Locks API. The API rotates the cookie and treats a reused one as theft, so parallel refreshes
+  would otherwise sign the user out.
+- Renewal is scheduled shortly before expiry; a failed renewal ends the session and clears every
+  cached query, so one user's data never shows to the next.
+- `?next=` after sign-in only accepts same-site paths (no open redirect).
+- Pages always render their static shell (all routes prerender), and load data only once the
+  session exists; the API authorises every request on its own.
+
+**How it was designed:** Taste-Skill set the direction (anti-slop copy rules, fintech radius, the
+sign-in page's product-at-work treatment); ui-ux-engineering governed every component (all
+states, labels, keyboard, responsive); Impeccable audited the result (its detector: 0 findings on
+source and on the rendered sign-in page). Verified in a real browser: one `<main>` and a labelled
+`<nav>` per page, no skipped heading levels, no unlabelled controls, the first Tab reaches "Skip to
+content", 44px touch targets on coarse pointers, motion off under reduced-motion except the
+loading spinner.
+
 ### Simulator (demo data)
 
 `POST /api/v1/simulator/runs` (Admin) plays both the merchant's checkout and its internal ledger,
@@ -284,7 +327,7 @@ Prerequisites: Node.js 24+, pnpm 10, Docker.
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env          # then set JWT_ACCESS_SECRET (see the comment in the file)
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.local     # set NEXT_PUBLIC_DEMO_PASSWORD to list demo accounts on sign-in
 
 pnpm infra:up     # PostgreSQL (localhost:5433) + Redis (localhost:6380)
 pnpm db:migrate   # apply migrations
@@ -377,7 +420,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
 - [x] **Phase 4**: Exception management workflow (queue, investigation, manual match, audit)
 - [x] **Phase 5**: Dashboard metrics, reports and export (CSV, PDF), configurable rules
-- [ ] **Phase 6**: Frontend design system
+- [x] **Phase 6**: Frontend design system (tokens, components, app shell, sign-in, session handling)
 - [ ] **Phase 7**: Frontend screens
 
 ## License

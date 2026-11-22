@@ -32,3 +32,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Locally installed agent skills (third-party, ~38 MB): not part of the product
+.agents/
+.claude/skills/
+skills-lock.json

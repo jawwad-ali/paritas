@@ -1,27 +1,241 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
-/* Placeholder tokens. The full design system is defined in Phase 6. */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Paritas design tokens.
+ * Palette: coolors "Ocean Sunset" (#001219 #005f73 #0a9396 #94d2bd #e9d8a6
+ * #ee9b00 #ca6702 #bb3e03 #ae2012 #9b2226). Ink and petrol carry the shell and
+ * actions; the sand → amber → orange → rust → red run is the severity ladder.
+ * Neutrals are tinted from the ink (hue ~205). Every text pairing is WCAG 2.2
+ * AA (4.5:1); form-control borders and focus rings are 3:1.
+ */
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: var(--font-yantramanav), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-yantramanav), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-muted: var(--sidebar-muted);
+
+  /* Severity ladder: tint (bg), text (fg), and the swatch used for meters and row edges. */
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-critical-bg: var(--sev-critical-bg);
+  --color-sev-critical-fg: var(--sev-critical-fg);
+  --color-sev-high: var(--sev-high);
+  --color-sev-high-bg: var(--sev-high-bg);
+  --color-sev-high-fg: var(--sev-high-fg);
+  --color-sev-medium: var(--sev-medium);
+  --color-sev-medium-bg: var(--sev-medium-bg);
+  --color-sev-medium-fg: var(--sev-medium-fg);
+  --color-sev-low: var(--sev-low);
+  --color-sev-low-bg: var(--sev-low-bg);
+  --color-sev-low-fg: var(--sev-low-fg);
+
+  /* Record reconciliation status. */
+  --color-matched: var(--matched);
+  --color-matched-bg: var(--matched-bg);
+  --color-matched-fg: var(--matched-fg);
+
+  /* Sharp radius scale: fintech reads precise, not soft. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
+  --radius-4xl: calc(var(--radius) * 3);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.3125rem;
+
+  --background: #f3f6f6;
+  --foreground: #001219;
+  --card: #ffffff;
+  --card-foreground: #001219;
+  --popover: #ffffff;
+  --popover-foreground: #001219;
+  --primary: #005f73;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eeef;
+  --secondary-foreground: #001219;
+  --muted: #e8eeef;
+  --muted-foreground: #4b5f65;
+  --accent: #e2eff0;
+  --accent-foreground: #001219;
+  --destructive: #ae2012;
+  --border: #d6e0e2;
+  --input: #76898e;
+  --ring: #0a9396;
+
+  --chart-1: #005f73;
+  --chart-2: #0a9396;
+  --chart-3: #94d2bd;
+  --chart-4: #ee9b00;
+  --chart-5: #ae2012;
+
+  /* The shell: an ink rail, the one committed field of colour. */
+  --sidebar: #001219;
+  --sidebar-foreground: #c3d3d6;
+  --sidebar-muted: #8aa3a9;
+  --sidebar-primary: #94d2bd;
+  --sidebar-primary-foreground: #001219;
+  --sidebar-accent: #0a2a33;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #12323b;
+  --sidebar-ring: #0a9396;
+
+  --sev-critical: #9b2226;
+  --sev-critical-bg: #fbe9e8;
+  --sev-critical-fg: #8f1d21;
+  --sev-high: #bb3e03;
+  --sev-high-bg: #fcede4;
+  --sev-high-fg: #9a3203;
+  --sev-medium: #ee9b00;
+  --sev-medium-bg: #fdf3df;
+  --sev-medium-fg: #7f4300;
+  --sev-low: #c9b170;
+  --sev-low-bg: #f6efd8;
+  --sev-low-fg: #5b5124;
+
+  --matched: #0a9396;
+  --matched-bg: #e3f3ed;
+  --matched-fg: #0b5e60;
+}
+
+.dark {
+  --background: #001219;
+  --foreground: #e3edee;
+  --card: #062029;
+  --card-foreground: #e3edee;
+  --popover: #062029;
+  --popover-foreground: #e3edee;
+  --primary: #94d2bd;
+  --primary-foreground: #001219;
+  --secondary: #0b2a33;
+  --secondary-foreground: #e3edee;
+  --muted: #0b2a33;
+  --muted-foreground: #93abb0;
+  --accent: #0e323c;
+  --accent-foreground: #e3edee;
+  --destructive: #ff8b7e;
+  --border: #16353e;
+  --input: #5a7a83;
+  --ring: #0a9396;
+
+  --chart-1: #94d2bd;
+  --chart-2: #0a9396;
+  --chart-3: #e9d8a6;
+  --chart-4: #ee9b00;
+  --chart-5: #ff8b7e;
+
+  --sidebar: #000c11;
+  --sidebar-foreground: #c3d3d6;
+  --sidebar-muted: #8aa3a9;
+  --sidebar-primary: #94d2bd;
+  --sidebar-primary-foreground: #001219;
+  --sidebar-accent: #0a2a33;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #12323b;
+  --sidebar-ring: #0a9396;
+
+  --sev-critical: #e5533f;
+  --sev-critical-bg: #2a0f12;
+  --sev-critical-fg: #ff8b7e;
+  --sev-high: #ca6702;
+  --sev-high-bg: #2b1608;
+  --sev-high-fg: #ff9a5c;
+  --sev-medium: #ee9b00;
+  --sev-medium-bg: #2a1d05;
+  --sev-medium-fg: #f3b23a;
+  --sev-low: #e9d8a6;
+  --sev-low-bg: #22200f;
+  --sev-low-fg: #e9d8a6;
+
+  --matched: #94d2bd;
+  --matched-bg: #0a2622;
+  --matched-fg: #94d2bd;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-sm text-foreground;
+    font-feature-settings: 'kern';
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--chart-3) 55%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+/* Touch screens: 44px targets for buttons (WCAG 2.5.5; 2.5.8 AA needs 24px, desktop keeps density). */
+@media (pointer: coarse) {
+  [data-slot='button'],
+  [data-slot='input-group-button'] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* A spinner is feedback, not decoration: it keeps turning so "still working" stays visible. */
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
