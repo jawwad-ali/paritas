@@ -18,6 +18,8 @@ export const INGESTION_JOBS = {
 
 export const RECONCILIATION_JOBS = {
   MATCH_TRANSACTION: 'match-transaction',
+  /** Periodic re-evaluation of unmatched transactions (time-based checks + safety net). */
+  SWEEP_UNRECONCILED: 'sweep-unreconciled',
 } as const;
 
 const RETAIN_COMPLETED_JOBS = 1_000;

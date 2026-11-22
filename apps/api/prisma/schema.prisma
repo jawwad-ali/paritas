@@ -162,6 +162,7 @@ enum ReconciliationStatus {
   UNMATCHED // not yet paired with its counterpart
   MATCHED // paired (auto or manual) and in agreement
   EXCEPTION // needs human attention; see linked exceptions
+  EXCLUDED // nothing to reconcile, e.g. a declined card payment no system recorded
 
   @@map("reconciliation_status")
 }
@@ -204,6 +205,7 @@ model Transaction {
   @@unique([sourceId, externalId])
   @@index([reference])
   @@index([reconciliationStatus, occurredAt])
+  @@index([reconciliationStatus, createdAt])
   @@index([sourceId, occurredAt])
   @@index([currency, amountMinor, occurredAt])
   @@index([matchId])
@@ -311,9 +313,17 @@ model ReconciliationException {
   @@map("exceptions")
 }
 
+enum ExceptionTransactionRole {
+  SUBJECT // this transaction is the problem; it is held in EXCEPTION status
+  CONTEXT // shown for comparison only (e.g. the original of a duplicate)
+
+  @@map("exception_transaction_role")
+}
+
 model ExceptionTransaction {
-  exceptionId   String @map("exception_id") @db.Uuid
-  transactionId String @map("transaction_id") @db.Uuid
+  exceptionId   String                   @map("exception_id") @db.Uuid
+  transactionId String                   @map("transaction_id") @db.Uuid
+  role          ExceptionTransactionRole @default(SUBJECT)
 
   exception   ReconciliationException @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
   transaction Transaction             @relation(fields: [transactionId], references: [id], onDelete: Restrict)

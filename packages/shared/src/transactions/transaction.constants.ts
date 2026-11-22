@@ -2,7 +2,7 @@
 export const TRANSACTION_STATUSES = ['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED'] as const;
 export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
 
-export const RECONCILIATION_STATUSES = ['UNMATCHED', 'MATCHED', 'EXCEPTION'] as const;
+export const RECONCILIATION_STATUSES = ['UNMATCHED', 'MATCHED', 'EXCEPTION', 'EXCLUDED'] as const;
 export type ReconciliationStatus = (typeof RECONCILIATION_STATUSES)[number];
 
 export const SOURCE_KINDS = ['PAYMENT_GATEWAY', 'INTERNAL_LEDGER'] as const;

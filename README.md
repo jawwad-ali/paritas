@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 2 (Transaction ingestion)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 3 (Matching engine)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -88,7 +88,7 @@ raw-event replays and simulator runs.
 ```
  Stripe ──webhook──►┐                        ┌──────────── worker (BullMQ, retries) ────────────┐
                     ├─► verify signature ─► raw_events ─► normaliser ─► transactions ─► reconciliation
- Ledger ──webhook──►┘   (HMAC, 5-min window)  (idempotent)  (per source)  (ordered upsert)   queue (Phase 3)
+ Ledger ──webhook──►┘   (HMAC, 5-min window)  (idempotent)  (per source)  (ordered upsert)   queue
 ```
 
 1. **Receive** (`POST /api/v1/webhooks/{stripe|internal-ledger}`): verify the signature over
@@ -111,6 +111,59 @@ API keys are refused; a disabled source still has its events stored for audit.
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | Stripe          | `payment_intent.succeeded`, `.processing`, `.payment_failed`, `.canceled`, `charge.refunded`                             | `Stripe-Signature` (webhook secret)                              |
 | Internal ledger | `ledger.entry.recorded`, `ledger.entry.updated` (schema: `apps/api/src/modules/ingestion/ledger/ledger-event.schema.ts`) | `x-paritas-signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">` |
+
+### Matching engine
+
+Every created or changed transaction is evaluated against the other side (gateway ↔ ledger):
+
+1. **Duplicates**: the same reference recorded twice by one source → `DUPLICATE`. The earliest
+   record stays eligible to match; the copies are held as exceptions.
+2. **Exact match**: same reference on both sides → candidate pair with confidence `1.0`.
+3. **Fuzzy match** (no shared reference): candidates in the same currency, within the time
+   window and the amount tolerance are scored, and every score is stored with its breakdown:
+
+   | Signal   | Weight | Scoring                                                                  |
+   | -------- | ------ | ------------------------------------------------------------------------ |
+   | Amount   | 0.45   | 1.0 when identical, falling linearly to 0.5 at the edge of the tolerance |
+   | Customer | 0.30   | 1.0 same customer, 0.0 different, 0.5 when either side is unknown        |
+   | Time     | 0.25   | 1.0 same moment, falling linearly to 0.0 at the edge of the window       |
+
+   ≥ auto-match threshold and unambiguous → `FUZZY` match. Between the candidate and auto-match
+   thresholds, or with a near-tie runner-up → `LOW_CONFIDENCE_MATCH` for a person to review.
+
+4. **Verdict on the pair**: different currency → `OTHER`; either side pending → wait (then
+   `DELAYED`); different statuses → `STATUS_CONFLICT`; amount beyond tolerance →
+   `AMOUNT_MISMATCH`; otherwise the pair is matched.
+5. **Time-based checks** (sweep every minute, after a grace period): one-sided record →
+   `MISSING`; still pending → `DELAYED`; a declined payment nobody booked → `EXCLUDED` (nothing
+   to reconcile).
+
+Tolerance = `max(fixed cents, basis points × amount)`, defaults 50¢ / 3% (absorbs Stripe's
+2.9% + 30¢). Defaults: 120-minute window, auto-match ≥ 0.85, candidates ≥ 0.65, missing after 60
+minutes. All rules live in the `matching_config` row and apply without a restart.
+
+**Self-healing**: when records come to agree (a late counterpart arrives, the ledger books a
+refund, an amount is corrected), the engine matches them and auto-resolves the related
+`MISSING`/`DELAYED`/`STATUS_CONFLICT`/`AMOUNT_MISMATCH` exceptions, with a timeline entry. An
+exception a person closed is never reopened by the engine.
+
+**Severity**: ledger revenue with no gateway payment, or "booked as paid but the payment
+failed" → `CRITICAL`; money received but not booked, duplicates, large mismatches → `HIGH`;
+smaller mismatches and delays → `MEDIUM`; review suggestions → `LOW`. Payments of $1,000+ are
+escalated one level.
+
+**Correctness under concurrency**: evaluations are serialised per currency with a PostgreSQL
+transaction-scoped advisory lock, so parallel workers on any number of replicas can never pair
+the same record twice. Each evaluation is idempotent and re-reads state under the lock. A
+transaction's status is derived by one rule after every decision (open exception as subject →
+`EXCEPTION`, else active match → `MATCHED`, else `UNMATCHED`), so it cannot drift.
+
+**Waiting for the exact counterpart first**: a record that carries a reference is not
+fuzzy-matched until a 2-minute settle window has passed, so a slightly late exact counterpart
+always wins over a guess.
+
+Verified with 600 simulated payments in three concurrent runs: every scenario landed in exactly
+the expected match or exception, with zero invariant violations.
 
 ### Simulator (demo data)
 
@@ -225,7 +278,7 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 - [x] **Phase 0**: Foundation (monorepo, config, logging, health, errors, Docker)
 - [x] **Phase 1**: Data model, authentication and roles, audit log
 - [x] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
-- [ ] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
+- [x] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
 - [ ] **Phase 4**: Exception management workflow
 - [ ] **Phase 5**: Dashboard metrics, reports and export, configurable rules
 - [ ] **Phase 6**: Frontend design system

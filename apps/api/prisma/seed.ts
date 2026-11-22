@@ -22,13 +22,16 @@ const SOURCES = [
  * Defaults tuned for card payments through Stripe (2.9% + 30¢ fees):
  * a 3% + 50¢ amount tolerance absorbs fees, and both sides of a payment are
  * normally recorded within minutes of each other.
+ * Candidate threshold 0.65: a pair whose customers are known *and different*
+ * scores at most 0.70, so it is proposed for review only when amount and time
+ * agree almost perfectly; weaker coincidences are not worth a person's time.
  */
 const DEFAULT_MATCHING_CONFIG = {
   amountToleranceMinor: 50,
   amountToleranceBps: 300,
   timeWindowMinutes: 120,
   autoMatchThreshold: 0.85,
-  candidateThreshold: 0.5,
+  candidateThreshold: 0.65,
   missingAfterMinutes: 60,
 } as const;
 

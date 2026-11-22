@@ -22,3 +22,6 @@ export * from './transactions/transaction.types.js';
 export * from './transactions/transaction.schemas.js';
 
 export * from './simulator/simulator.js';
+
+export * from './exceptions/exception.constants.js';
+export * from './money/format-money.js';
