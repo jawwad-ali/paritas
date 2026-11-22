@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ParitasMark } from '@/components/brand/paritas-mark';
-import { MatchPreview } from '@/components/sign-in/match-preview';
+import { ProductCollage } from '@/components/sign-in/product-collage';
 import { SignInForm } from '@/components/sign-in/sign-in-form';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -11,62 +11,66 @@ const FormSkeleton = () => (
   <div className="space-y-6" aria-hidden="true">
     <Skeleton className="h-16" />
     <Skeleton className="h-16" />
-    <Skeleton className="h-10" />
+    <Skeleton className="h-12 xl:h-16" />
   </div>
 );
 
 /**
- * Two panels: the product at work on ink (what Paritas does, one fact, the
- * matching engine shown live), and the sign-in form. On a phone the form comes first.
+ * Three columns on a wide screen: what Paritas is, the product at work, and
+ * the way in. Always on the flat ink ground, whatever the theme; the grain field
+ * in the collage is the page's only colour. A phone stacks them, form first
+ * after the headline.
  */
 const SignInPage = () => (
-  <div className="grid min-h-svh lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-    <section
-      aria-labelledby="product-heading"
-      className="order-2 flex flex-col justify-between gap-12 bg-sidebar px-4 py-12 text-sidebar-foreground sm:px-12 lg:order-1 lg:px-16"
-    >
-      <div className="hidden items-center gap-2.5 lg:flex motion-safe:animate-in motion-safe:fade-in motion-safe:duration-500">
+  <div className="dark relative isolate min-h-svh overflow-hidden bg-background text-foreground [color-scheme:dark]">
+    <div className="mx-auto flex min-h-svh w-full max-w-[1280px] flex-col px-4 sm:px-8 2xl:px-0">
+      <header className="flex h-20 shrink-0 items-center gap-2.5 xl:h-24">
         <ParitasMark />
-        <span className="text-lg font-bold tracking-tight text-sidebar-accent-foreground">
-          Paritas
-        </span>
-      </div>
-      <div className="max-w-xl space-y-8 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
-        <div className="space-y-4">
+        <span className="text-lg font-bold tracking-tight">Paritas</span>
+      </header>
+
+      <main className="grid flex-1 grid-cols-1 content-start gap-x-6 gap-y-10 pb-10 md:grid-cols-12 md:content-center xl:grid-rows-[minmax(0,1fr)] xl:content-stretch xl:pb-4">
+        <section
+          aria-labelledby="product-heading"
+          className="space-y-4 md:col-span-5 md:self-end xl:col-span-3 xl:row-start-1 xl:self-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500"
+        >
           <h1
             id="product-heading"
-            className="text-3xl leading-tight font-bold tracking-tight text-balance text-sidebar-accent-foreground sm:text-4xl"
+            className="text-[2.5rem] leading-[1.04] font-medium tracking-tight text-balance xl:text-[3.25rem]"
           >
-            Stripe-to-ledger reconciliation for finance teams
+            Reconciliation for finance teams
           </h1>
-          <p className="max-w-lg text-base leading-relaxed">
-            Every Stripe payment is checked against your internal ledger as it arrives: an exact
-            match by reference, otherwise a score on amount, customer and time. What does not match
-            goes to one queue, both records side by side, and every decision is recorded.
+          <div className="h-px w-16 bg-primary" />
+          <p className="max-w-sm text-base leading-6 text-muted-foreground">
+            Every Stripe payment is checked against your ledger as it arrives. Fee differences
+            within 3% + 50¢ match on their own.
           </p>
-        </div>
-        <MatchPreview />
-      </div>
-      <p className="text-xs text-sidebar-muted">
-        Test mode only: Paritas refuses live payment keys.
-      </p>
-    </section>
+        </section>
 
-    <main className="order-1 flex flex-col justify-center px-4 py-12 sm:px-12 lg:order-2 lg:px-16">
-      <div className="mx-auto w-full max-w-sm space-y-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 lg:hidden">
-            <ParitasMark />
-            <span className="text-lg font-bold tracking-tight">Paritas</span>
+        <section
+          aria-labelledby="sign-in-heading"
+          className="space-y-6 md:col-span-5 md:col-start-1 md:self-start xl:col-span-3 xl:col-start-10 xl:row-start-1 xl:self-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:delay-150 motion-safe:duration-500 motion-safe:fill-mode-backwards"
+        >
+          <div className="space-y-1">
+            <h2 id="sign-in-heading" className="text-xl font-medium tracking-tight">
+              Sign in
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Use the work email your administrator invited.
+            </p>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Sign in to Paritas</h2>
-          <p className="text-muted-foreground">Use the work email your administrator invited.</p>
-        </div>
-        <Suspense fallback={<FormSkeleton />}>
-          <SignInForm />
-        </Suspense>
-      </div>
-    </main>
+          <Suspense fallback={<FormSkeleton />}>
+            <SignInForm />
+          </Suspense>
+        </section>
+
+        <ProductCollage className="aspect-[628/716] max-h-[540px] w-full md:col-span-7 md:col-start-6 md:row-span-2 md:row-start-1 md:aspect-auto md:h-full md:max-h-none md:min-h-[560px] xl:col-span-6 xl:col-start-4 xl:row-span-1 xl:min-h-0" />
+      </main>
+
+      <footer className="shrink-0 py-6 text-xs text-muted-foreground">
+        Test mode only: Paritas refuses live payment keys.
+      </footer>
+    </div>
   </div>
 );
 

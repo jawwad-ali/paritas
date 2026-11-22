@@ -37,3 +37,6 @@ Thumbs.db
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Taste-Skill dealer history (local state of the design skill)
+.taste-skill/

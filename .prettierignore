@@ -7,3 +7,7 @@ pnpm-lock.yaml
 
 # Impeccable working files (git-ignored by their own .gitignore)
 **/.impeccable/
+
+# Vendored Taste-Skill effect runtime, kept byte-for-byte as shipped
+**/public/vendor/
+**/.taste-skill/

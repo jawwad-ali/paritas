@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Vendored Taste-Skill effect runtime, kept as shipped.
+    'public/vendor/**',
   ]),
 ]);
 

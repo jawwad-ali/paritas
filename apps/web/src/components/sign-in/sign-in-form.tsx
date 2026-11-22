@@ -90,7 +90,12 @@ export const SignInForm = () => {
           <FieldError errors={[errors.password]} />
         </Field>
       </FieldGroup>
-      <Button type="submit" size="lg" className="h-10 w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="h-12 w-full text-base xl:h-16 xl:text-xl"
+        disabled={isSubmitting}
+      >
         {isSubmitting ? (
           <>
             <Spinner data-icon="inline-start" />

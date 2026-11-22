@@ -343,6 +343,11 @@ and component rendered by the real code.
 - **Type:** Yantramanav throughout. Its digits are all one width, so money columns align; JetBrains
   Mono only for identifiers (`pi_3QgT8a`, `LED-7Q2K9`), where 0/O and 1/l must stay apart.
 - **Severity never relies on colour alone:** a four-tick meter plus a row edge and a label.
+- **Sign-in page:** three columns on the ink ground: the headline, the product at work, and the
+  form. The middle is a collage of real Paritas screens (a match with its score, an exception
+  being resolved, a report) that changes every 2.8 seconds, with a pause button, over a slowly
+  drifting grain gradient in the palette's teal and amber (WebGL, paused off-screen, a still frame
+  under reduced motion). It holds the first set on a phone.
 - **Accessibility checked in a real browser:** one `<main>` and labelled navigation per page, no
   skipped heading levels, no unlabelled controls, a skip link, 44px touch targets on touch screens,
   motion off under reduced-motion. Charts are plain SVG with a data table under each.
