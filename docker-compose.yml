@@ -36,12 +36,31 @@ services:
       <<: *healthcheck-defaults
       test: ['CMD', 'redis-cli', 'ping']
 
+  # One-off job: apply migrations, then load local demo data (idempotent).
+  migrate:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrator
+    env_file: apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-paritas}:${POSTGRES_PASSWORD:-paritas}@postgres:5432/${POSTGRES_DB:-paritas}?schema=public
+    command: ['sh', '-c', 'pnpm exec prisma migrate deploy && pnpm exec prisma db seed']
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     profiles: [app]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    # Secrets (JWT key, cookie flags) come from your local apps/api/.env;
+    # the values below override what differs inside the Docker network.
+    env_file: apps/api/.env
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -53,6 +72,8 @@ services:
     ports:
       - '4000:4000'
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

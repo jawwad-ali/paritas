@@ -2,6 +2,7 @@ import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
+import { Public } from '../auth/decorators/public.decorator.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
 import { DEPENDENCY_PING_TIMEOUT_MS, HEALTH_CHECK_KEYS } from './health.constants.js';
 import { RedisHealthIndicator } from './indicators/redis.health.js';
@@ -13,6 +14,7 @@ import { RedisHealthIndicator } from './indicators/redis.health.js';
  * - readiness: can it do useful work right now?
  */
 @ApiTags('Health')
+@Public()
 @SkipThrottle()
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {

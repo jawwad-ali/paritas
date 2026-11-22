@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { configureApp } from './bootstrap/configure-app.js';
@@ -7,7 +8,7 @@ import { AppConfigService } from './config/app-config.service.js';
 
 const bootstrap = async (): Promise<void> => {
   // Buffer logs until pino is ready so boot messages are structured too.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   const logger = app.get(Logger);
   app.useLogger(logger);
 

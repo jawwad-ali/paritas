@@ -9,7 +9,7 @@ find out at month-end and reconcile by hand. Paritas ingests transactions from e
 source as they happen, matches them automatically, turns every discrepancy into a
 trackable exception, and produces audit-ready reports.
 
-> Status: **Phase 0 (Foundation)** complete. See the [roadmap](#roadmap).
+> Status: **Phase 1 (Data model, auth, audit)** complete. See the [roadmap](#roadmap).
 
 ## Architecture
 
@@ -32,25 +32,55 @@ trackable exception, and produces audit-ready reports.
                                            └──────────────┘
 ```
 
-| Path              | What it is                                                    |
-| ----------------- | ------------------------------------------------------------- |
-| `apps/api`        | NestJS 12 API (ESM). Config, logging, health, error contract. |
-| `apps/web`        | Next.js 16 App Router frontend (Tailwind CSS).                |
-| `packages/shared` | Contracts shared by API and web (API constants, error shape). |
+| Path              | What it is                                                          |
+| ----------------- | ------------------------------------------------------------------- |
+| `apps/api`        | NestJS 12 API (ESM): auth, users, audit, health, error contract.    |
+| `apps/web`        | Next.js 16 App Router frontend (Tailwind CSS).                      |
+| `packages/shared` | Contracts shared by API and web: Zod schemas, DTO types, constants. |
 
-### Foundation decisions
+### Data model
 
-- **Fail-fast config**: every environment variable is validated with Zod at boot
-  (`apps/api/src/config/env.schema.ts`). A bad deploy fails to start instead of misbehaving.
-- **One error shape**: every non-2xx response is RFC 9457 `application/problem+json`
-  with a `requestId`. Unknown errors never leak internals.
-- **Traceable requests**: each request gets an `x-request-id` (or reuses the caller's),
-  attached to every structured (pino) log line and returned in the response.
-- **Kubernetes-style probes**: `/api/health/live` (process is up) and
-  `/api/health/ready` (PostgreSQL + Redis reachable), wired into Docker `HEALTHCHECK`s.
-- **Secure defaults**: Helmet headers, CORS allow-list, global rate limiting,
-  non-root containers, secrets only via environment.
-- **Versioned API**: routes live under `/api/v1/...`.
+```
+users ─┬─< refresh_tokens            sources ─┬─< raw_events
+       │                                      └─< transactions >─ matches
+       └─ (actor of) matches, exceptions,                │
+          exception_activities, matching_config          └─< exception_transactions >─ exceptions ─< exception_activities
+
+audit_logs   (append-only, no foreign keys: history outlives what it describes)
+matching_config   (single row: tolerances, time window, confidence thresholds)
+```
+
+- **Money** is stored as integer minor units (`BIGINT` cents), never floating point.
+- **UUIDv7** primary keys: time-ordered, so inserts stay cheap on B-tree indexes.
+- **Ingestion is idempotent**: `raw_events (source_id, external_event_id)` is unique, so a
+  webhook delivered twice is stored once.
+- **Invariants live in the database too**: CHECK constraints guard currency codes,
+  positive amounts, confidence in [0, 1], consistent closure of exceptions, and the
+  single-row matching config. A trigger rejects `UPDATE`, `DELETE` and `TRUNCATE` on
+  `audit_logs`.
+
+### Authentication and authorization
+
+| Piece          | Design                                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| Passwords      | Argon2id (OWASP parameters). Unknown emails cost the same time as wrong passwords.                  |
+| Access token   | JWT (HS256, 15 min), sent as `Authorization: Bearer`. Algorithm, issuer, audience pinned.           |
+| Refresh token  | 256-bit opaque token in an `httpOnly` cookie scoped to `/api/v1/auth`; only its SHA-256 is stored.  |
+| Rotation       | Every refresh issues a new token. Replaying an old one revokes the whole session (theft detection). |
+| CSRF           | Cookie endpoints require an `x-requested-by: paritas-web` header (blocked cross-site by CORS).      |
+| Secure default | Every route requires a valid token unless marked `@Public()`; `@Roles()` restricts by role.         |
+| Brute force    | Login limited to 10 attempts per minute per IP; global rate limit on everything else.               |
+
+Roles: **Admin** (users, sources, matching rules), **Manager** (monitors health, reads audit
+trail), **Officer** (works exceptions).
+
+### Audit trail
+
+Every important action is written to `audit_logs` with the actor, the entity, a
+`{ before, after }` diff and the request context (`requestId`, IP, user agent). Changes and
+their audit records are written in the same database transaction, so one never exists
+without the other. Logged today: sign-in (success and failure, with reason), sign-out,
+refresh-token reuse, password change, user creation and updates.
 
 ## Getting started
 
@@ -58,18 +88,30 @@ Prerequisites: Node.js 24+, pnpm 10, Docker.
 
 ```bash
 pnpm install
-cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.example apps/api/.env          # then set JWT_ACCESS_SECRET (see the comment in the file)
 cp apps/web/.env.example apps/web/.env.local
 
 pnpm infra:up     # PostgreSQL (localhost:5433) + Redis (localhost:6380)
+pnpm db:migrate   # apply migrations
+pnpm db:seed      # sources, default matching rules, demo users
 pnpm dev          # API on :4000, web on :3000
 ```
 
-Or run everything in containers:
+Or run everything in containers (migrations and seed run automatically):
 
 ```bash
 pnpm stack:up
 ```
+
+### Demo accounts (local only)
+
+| Role    | Email                         | Password            |
+| ------- | ----------------------------- | ------------------- |
+| Admin   | `admin@paritas.example.com`   | `Paritas-Demo-2026` |
+| Manager | `manager@paritas.example.com` | `Paritas-Demo-2026` |
+| Officer | `officer@paritas.example.com` | `Paritas-Demo-2026` |
+
+The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 
 | URL                                    | What                 |
 | -------------------------------------- | -------------------- |
@@ -77,21 +119,37 @@ pnpm stack:up
 | http://localhost:4000/api/docs         | OpenAPI (Swagger) UI |
 | http://localhost:4000/api/health/ready | Readiness probe      |
 
+### API at a glance
+
+| Method & path                       | Who            | What                                     |
+| ----------------------------------- | -------------- | ---------------------------------------- |
+| `POST /api/v1/auth/login`           | anyone         | Sign in                                  |
+| `POST /api/v1/auth/refresh`         | cookie         | New access token (rotates the cookie)    |
+| `POST /api/v1/auth/logout`          | cookie         | End the session                          |
+| `GET /api/v1/auth/me`               | signed in      | Current user                             |
+| `POST /api/v1/auth/change-password` | signed in      | Change password, sign out other sessions |
+| `GET/POST /api/v1/users`            | Admin          | List / create users                      |
+| `GET/PATCH /api/v1/users/:id`       | Admin          | Read / update name, role, active status  |
+| `GET /api/v1/audit-logs`            | Admin, Manager | Search the audit trail                   |
+
 ### Useful scripts
 
-| Command          | Does                                     |
-| ---------------- | ---------------------------------------- |
-| `pnpm dev`       | Run all apps in watch mode (Turborepo)   |
-| `pnpm build`     | Build every package                      |
-| `pnpm lint`      | Lint every package                       |
-| `pnpm typecheck` | Type-check every package                 |
-| `pnpm infra:up`  | Start PostgreSQL + Redis                 |
-| `pnpm stack:up`  | Build and start the full stack in Docker |
+| Command           | Does                                     |
+| ----------------- | ---------------------------------------- |
+| `pnpm dev`        | Run all apps in watch mode (Turborepo)   |
+| `pnpm build`      | Build every package                      |
+| `pnpm lint`       | Lint every package                       |
+| `pnpm typecheck`  | Type-check every package                 |
+| `pnpm infra:up`   | Start PostgreSQL + Redis                 |
+| `pnpm db:migrate` | Create/apply migrations (development)    |
+| `pnpm db:seed`    | Load idempotent demo data                |
+| `pnpm db:studio`  | Browse the database in Prisma Studio     |
+| `pnpm stack:up`   | Build and start the full stack in Docker |
 
 ## Roadmap
 
 - [x] **Phase 0**: Foundation (monorepo, config, logging, health, errors, Docker)
-- [ ] **Phase 1**: Data model, authentication and roles, audit log
+- [x] **Phase 1**: Data model, authentication and roles, audit log
 - [ ] **Phase 2**: Transaction ingestion (Stripe webhooks, mock internal ledger)
 - [ ] **Phase 3**: Matching engine (exact, fuzzy, confidence scoring, anomaly detection)
 - [ ] **Phase 4**: Exception management workflow

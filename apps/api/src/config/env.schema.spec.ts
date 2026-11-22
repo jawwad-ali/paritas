@@ -4,6 +4,7 @@ const validEnv = {
   CORS_ORIGINS: 'http://localhost:3000, https://app.example.com',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
+  JWT_ACCESS_SECRET: 'a'.repeat(32),
 };
 
 describe('envSchema', () => {

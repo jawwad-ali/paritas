@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { PROBLEM_JSON_CONTENT_TYPE, REQUEST_ID_HEADER } from '@paritas/shared';
 import request from 'supertest';
@@ -8,11 +8,11 @@ import { AppConfigService } from '../src/config/app-config.service.js';
 
 /** Runs against the real PostgreSQL + Redis from docker-compose (`pnpm infra:up`). */
 describe('Health & error contract (e2e)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app, app.get(AppConfigService));
     await app.init();
   });

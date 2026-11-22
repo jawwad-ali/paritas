@@ -10,6 +10,11 @@ WORKDIR /repo
 
 # ── Build: install workspace deps, compile shared + api ───
 FROM base AS build
+# Prisma's schema engine (used by `migrate`) links against OpenSSL. The runtime
+# image does not need it: queries go through the pure-JS `pg` driver adapter.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
@@ -23,6 +28,13 @@ RUN pnpm --filter "@paritas/api..." run build
 # Self-contained production bundle: dist + prod node_modules only.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm deploy --filter @paritas/api --prod --legacy --ignore-scripts /out
+
+# ── Migrator: one-off job that applies database migrations ─
+# Runs before the API starts (see docker-compose.yml). Keeping migrations out of
+# the API process means N replicas never race to migrate the same database.
+FROM build AS migrator
+WORKDIR /repo/apps/api
+CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
 
 # ── Runtime: minimal, non-root ────────────────────────────
 FROM node:24-slim AS runtime
