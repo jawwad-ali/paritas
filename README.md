@@ -526,6 +526,11 @@ pnpm dev          # API on :4000, web on :3000
 # then sign in as the admin and press "Simulate payments" on the dashboard
 ```
 
+To check your setup: `pnpm test` runs the API unit tests, and
+`pnpm --filter @paritas/api test:e2e` runs the end-to-end tests for the health checks and the error
+format against the running database and Redis (`pnpm infra:up` first). The main flows are checked by hand in the browser (see
+[Future Improvements](#future-improvements)).
+
 Or run everything in containers (migrations and seed run automatically):
 
 ```bash
@@ -562,7 +567,9 @@ The password comes from `SEED_DEMO_PASSWORD` in `apps/api/.env`.
 | `pnpm build`      | Build every package                      |
 | `pnpm lint`       | Lint every package                       |
 | `pnpm typecheck`  | Type-check every package                 |
+| `pnpm test`       | Run the API unit tests (Vitest)          |
 | `pnpm infra:up`   | Start PostgreSQL + Redis                 |
+| `pnpm infra:down` | Stop the containers (data volumes kept)  |
 | `pnpm db:migrate` | Create/apply migrations (development)    |
 | `pnpm db:seed`    | Load idempotent demo data                |
 | `pnpm db:studio`  | Browse the database in Prisma Studio     |
